@@ -1,0 +1,87 @@
+# file: .gitignore
+
+# =====================================================
+# SISTEMA RRHH BLOCKCHAIN - .gitignore
+# =====================================================
+
+# ===== ARCHIVOS SENSIBLES (NUNCA SUBIR) =====
+.env
+.env.local
+.env.production
+*.key
+*.pem
+config/secrets.json
+database/backups/*.sql
+uploads/
+
+# ===== DEPENDENCIAS =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# ===== BASES DE DATOS =====
+*.sqlite
+*.sqlite3
+*.db
+
+# ===== LOGS =====
+logs/
+*.log
+
+# ===== SISTEMA OPERATIVO =====
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+Desktop.ini
+$RECYCLE.BIN/
+
+# ===== IDEs =====
+# VSCode
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+
+# JetBrains
+.idea/
+*.iml
+
+# ===== BUILD Y CACHE =====
+dist/
+build/
+.cache/
+.parcel-cache/
+
+# ===== TESTING =====
+coverage/
+.nyc_output/
+
+# ===== TEMPORALES =====
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# ===== CERTIFICADOS SSL (desarrollo) =====
+certs/*.key
+certs/*.pem
+certs/*.crt
+
+# ===== ARCHIVOS GRANDES =====
+*.zip
+*.tar.gz
+*.rar
+
+# ===== MANTENER ESTRUCTURAS VACÍAS =====
+!.gitkeep
