@@ -120,7 +120,7 @@ mysql> SHOW TABLES;  # Debe mostrar 14 tablas
 ```bash
 cd backend
 npm install
-cp .env.example .env  # Configurar variables de entorno
+cp .env.example .env  # Configurar variables de  entorno
 npm run dev
 ```
 
