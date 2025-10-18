@@ -24,4 +24,4 @@ const verificarTokenUtil = (token) => {
 module.exports = {
   generarToken,
   verificarTokenUtil
-};
+};//.

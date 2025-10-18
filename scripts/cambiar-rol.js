@@ -46,4 +46,4 @@ if (!['ADMIN', 'EMPRESA', 'CANDIDATO', 'CONTRATISTA'].includes(rol)) {
   process.exit(1);
 }
 
-cambiarRol(email, rol);
+cambiarRol(email, rol);//.

@@ -33,4 +33,4 @@ const manejadorErrores = (err, req, res, next) => {
 module.exports = {
   noEncontrado,
   manejadorErrores
-};
+};//.

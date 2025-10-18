@@ -124,4 +124,4 @@ describe('Empresa Endpoints', () => {
       expect(response.body.datos.empresas.every(e => e.activo)).toBe(true);
     });
   });
-});
+});//.

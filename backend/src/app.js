@@ -48,4 +48,4 @@ app.use('/api/candidatos', candidatoRoutes); // 👈 NUEVO
 app.use(noEncontrado);
 app.use(manejadorErrores);
 
-module.exports = app;
+module.exports = app;//.

@@ -39,4 +39,4 @@ router.post('/login', [
  */
 router.get('/perfil', verificarToken, obtenerPerfil);
 
-module.exports = router;
+module.exports = router;//.

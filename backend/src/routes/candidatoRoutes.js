@@ -59,4 +59,4 @@ router.post('/perfil', [
     .isIn(['Presencial', 'Remoto', 'Híbrido', 'Indiferente'])
 ], guardarPerfilCandidato);
 
-module.exports = router;
+module.exports = router;//.

@@ -75,4 +75,4 @@ const verificarRoles = (rolesPermitidos) => {
 module.exports = {
   verificarToken,
   verificarRoles
-};
+};//.

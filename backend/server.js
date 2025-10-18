@@ -54,4 +54,4 @@ process.on('SIGTERM', async () => {
 });
 
 // Iniciar
-iniciarServidor();
+iniciarServidor();//.

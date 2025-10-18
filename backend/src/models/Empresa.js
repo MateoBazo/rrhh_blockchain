@@ -86,4 +86,4 @@ const Empresa = sequelize.define('empresas', {
   underscored: true
 });
 
-module.exports = Empresa;
+module.exports = Empresa;//.

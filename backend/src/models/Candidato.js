@@ -142,4 +142,4 @@ const Candidato = sequelize.define('candidatos', {
   underscored: true
 });
 
-module.exports = Candidato;
+module.exports = Candidato;//.

@@ -82,4 +82,4 @@ Usuario.prototype.toJSON = function() {
   return valores;
 };
 
-module.exports = Usuario;
+module.exports = Usuario;//.

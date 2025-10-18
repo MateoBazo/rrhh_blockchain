@@ -136,4 +136,4 @@ module.exports = {
   obtenerCandidatos,
   obtenerCandidatoPorId,
   guardarPerfilCandidato
-};
+};//.

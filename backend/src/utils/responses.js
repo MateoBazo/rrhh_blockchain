@@ -22,4 +22,4 @@ const errorRespuesta = (res, statusCode = 500, mensaje, errores = null) => {
 module.exports = {
   exitoRespuesta,
   errorRespuesta
-};
+};//.
