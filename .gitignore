@@ -21,6 +21,10 @@ yarn-debug.log*
 yarn-error.log*
 package-lock.json
 yarn.lock
+uploads/*
+!uploads/.gitkeep
+!uploads/cv/.gitkeep
+!uploads/fotos/.gitkeeps
 
 # ===== BASES DE DATOS =====
 *.sqlite

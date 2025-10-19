@@ -39,7 +39,7 @@ const Candidato = sequelize.define('candidatos', {
     allowNull: true
   },
   genero: {
-    type: DataTypes.ENUM('M', 'F', 'Otro', 'Prefiero no decir'),
+    type: DataTypes.ENUM('Masculino', 'Femenino', 'Otro', 'Prefiero no decir'),
     allowNull: true
   },
   telefono: {
@@ -75,7 +75,7 @@ const Candidato = sequelize.define('candidatos', {
     allowNull: true
   },
   nivel_educativo: {
-    type: DataTypes.ENUM('Secundaria', 'Técnico', 'Universitario', 'Postgrado', 'Maestría', 'Doctorado'),
+    type: DataTypes.ENUM('Secundaria', 'Técnico', 'Licenciatura', 'Maestría', 'Doctorado'),
     allowNull: true
   },
   anios_experiencia: {
@@ -84,11 +84,11 @@ const Candidato = sequelize.define('candidatos', {
     defaultValue: 0
   },
   estado_laboral: {
-    type: DataTypes.ENUM('Empleado', 'Desempleado', 'Buscando', 'Freelance', 'Estudiante'),
+    type: DataTypes.ENUM('Empleado','Desempleado','Busqueda_activa','Busqueda_pasiva'),
     allowNull: true
   },
   disponibilidad: {
-    type: DataTypes.ENUM('Inmediata', '15 días', '1 mes', '2 meses', 'No disponible'),
+    type: DataTypes.ENUM('inmediata','2_semanas','1_mes','mas_1_mes'),
     allowNull: true
   },
   modalidad_preferida: {

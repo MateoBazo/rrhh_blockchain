@@ -2,35 +2,23 @@
 /**
  * Middleware centralizado para manejo de errores
  */
-
-// Middleware para rutas no encontradas (404)
-const noEncontrado = (req, res, next) => {
-  const error = new Error(`Ruta no encontrada - ${req.originalUrl}`);
-  res.status(404);
-  next(error);
-};
-
-// Middleware para errores generales
-const manejadorErrores = (err, req, res, next) => {
-  const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
+const errorHandler = (err, req, res, next) => {
+  // Si el statusCode ya está establecido, úsalo; sino, 500
+  const statusCode = res.statusCode && res.statusCode !== 200 ? res.statusCode : 500;
   
-  // Log del error (en producción usar logger profesional)
   console.error('❌ Error:', {
     mensaje: err.message,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
-    ruta: req.originalUrl,
+    stack: err.stack,
+    url: req.originalUrl,
     metodo: req.method,
     timestamp: new Date().toISOString()
   });
 
   res.status(statusCode).json({
-    exito: false,
-    mensaje: err.message,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    success: false,
+    mensaje: err.message || 'Error interno del servidor',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
 };
 
-module.exports = {
-  noEncontrado,
-  manejadorErrores
-};//.
+module.exports = errorHandler;

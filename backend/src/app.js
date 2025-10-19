@@ -1,51 +1,85 @@
 // file: backend/src/app.js
 const express = require('express');
-const cors = require('cors');
 const helmet = require('helmet');
+const cors = require('cors');
 const morgan = require('morgan');
-require('dotenv').config();
-
-const { noEncontrado, manejadorErrores } = require('./middlewares/errorHandler');
-
-// Importar rutas
-const authRoutes = require('./routes/authRoutes');
-const empresaRoutes = require('./routes/empresaRoutes');
-const candidatoRoutes = require('./routes/candidatoRoutes'); 
+const errorHandler = require('./middlewares/errorHandler');
 
 const app = express();
 
 // Middlewares de seguridad
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true
 }));
 
+// Logging
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// Parseo
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Body parsing
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Servir archivos estáticos
+app.use('/uploads', express.static('uploads'));
 
 // Health check
 app.get('/health', (req, res) => {
-  res.status(200).json({
-    exito: true,
-    mensaje: 'Servidor funcionando correctamente',
+  res.json({ 
+    status: 'ok',
     timestamp: new Date().toISOString(),
-    entorno: process.env.NODE_ENV
+    uptime: process.uptime()
   });
 });
 
-// Rutas de la API
+app.get('/', (req, res) => {
+  res.json({ 
+    mensaje: 'API Sistema RRHH Blockchain',
+    version: '1.0.0',
+    status: 'online'
+  });
+});
+
+// ============================================
+// RUTAS S004
+// ============================================
+const authRoutes = require('./routes/authRoutes');
+const empresaRoutes = require('./routes/empresaRoutes');
+const candidatoRoutes = require('./routes/candidatoRoutes');
+
 app.use('/api/auth', authRoutes);
 app.use('/api/empresas', empresaRoutes);
-app.use('/api/candidatos', candidatoRoutes); // 👈 NUEVO
+app.use('/api/candidatos', candidatoRoutes);
 
-// Manejo de errores
-app.use(noEncontrado);
-app.use(manejadorErrores);
+// ============================================
+// RUTAS S005 (NUEVAS)
+// ============================================
+const uploadRoutes = require('./routes/upload');
+const educacionRoutes = require('./routes/educacion');
+const experienciaRoutes = require('./routes/experiencia');
+const habilidadRoutes = require('./routes/habilidad');
 
-module.exports = app;//.
+app.use('/api/upload', uploadRoutes);
+app.use('/api/educacion', educacionRoutes);
+app.use('/api/experiencia', experienciaRoutes);
+app.use('/api/habilidades', habilidadRoutes);
+
+// ============================================
+// MANEJO DE ERRORES
+// ============================================
+
+// 404 - Ruta no encontrada
+app.use((req, res, next) => {
+  res.status(404).json({
+    success: false,
+    mensaje: `Ruta no encontrada: ${req.method} ${req.originalUrl}`
+  });
+});
+
+// Error handler global
+app.use(errorHandler);
+
+module.exports = app;

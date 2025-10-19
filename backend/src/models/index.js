@@ -1,5 +1,8 @@
 // file: backend/src/models/index.js
 const { sequelize } = require('../config/database');
+const { Sequelize } = require('sequelize');
+
+// ✅ CORRECCIÓN: Importar directamente (no llamar como función)
 const Usuario = require('./Usuario');
 const Empresa = require('./Empresa');
 const Candidato = require('./Candidato');
@@ -19,7 +22,7 @@ Candidato.belongsTo(Usuario, {
   as: 'usuario'
 });
 
-// Usuario -> Empresa (1:N - un usuario admin puede gestionar varias empresas)
+// Usuario -> Empresa (1:N)
 Usuario.hasMany(Empresa, {
   foreignKey: 'usuario_id',
   as: 'empresas',
@@ -30,11 +33,15 @@ Empresa.belongsTo(Usuario, {
   as: 'usuario_admin'
 });
 
-const models = {
+// ============================================
+// EXPORTAR
+// ============================================
+const db = {
   Usuario,
   Empresa,
   Candidato,
-  sequelize
+  sequelize,
+  Sequelize: require('sequelize')
 };
 
-module.exports = models;//.
+module.exports = db;
