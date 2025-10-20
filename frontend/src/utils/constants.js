@@ -1,3 +1,4 @@
+// file: src/utils/constants.js
 export const ROLES = {
   ADMIN: 'ADMIN',
   EMPRESA: 'EMPRESA',

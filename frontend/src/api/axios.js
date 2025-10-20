@@ -1,6 +1,7 @@
+// file: src/api/axios.js
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const axiosInstance = axios.create({
   baseURL: API_URL,
@@ -10,6 +11,7 @@ const axiosInstance = axios.create({
   },
 });
 
+// Request interceptor: Añadir token JWT
 axiosInstance.interceptors.request.use(
   config => {
     const token = localStorage.getItem('token');
@@ -23,6 +25,7 @@ axiosInstance.interceptors.request.use(
   }
 );
 
+// Response interceptor: Manejo global de errores
 axiosInstance.interceptors.response.use(
   response => response,
   error => {
@@ -31,9 +34,12 @@ axiosInstance.interceptors.response.use(
 
       switch (status) {
         case 401:
+          // Token expirado o inválido
           localStorage.removeItem('token');
           localStorage.removeItem('user');
-          window.location.href = '/login';
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login';
+          }
           break;
         case 403:
           console.error('Acceso denegado:', data.message);

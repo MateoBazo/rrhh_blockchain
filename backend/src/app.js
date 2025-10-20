@@ -9,9 +9,27 @@ const app = express();
 
 // Middlewares de seguridad
 app.use(helmet());
+
+// ✅ CORS ACTUALIZADO PARA VITE
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:3000',  // CRA (si lo usas)
+      'http://localhost:5173',  // ✅ VITE (frontend actual)
+      'http://localhost:5174',  // Vite alternativo
+      process.env.FRONTEND_URL, // URL de producción (.env)
+    ].filter(Boolean); // Eliminar undefined
+
+    // Permitir requests sin origin (Postman, cURL, etc.)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('No permitido por CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
 // Logging
@@ -68,7 +86,6 @@ app.use('/api/experiencia', experienciaRoutes);
 app.use('/api/habilidades', habilidadRoutes);
 
 // Rutas nuevas (S006)
-
 app.use('/api/referencias', require('./routes/referenciasRoutes'));
 app.use('/api/certificaciones', require('./routes/certificacionesRoutes'));
 app.use('/api/idiomas', require('./routes/idiomasRoutes'));
