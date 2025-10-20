@@ -2,105 +2,122 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
 
-// Crear carpetas si no existen
-const createUploadDirs = () => {
-  const dirs = ['uploads/cv', 'uploads/fotos', 'uploads/documentos'];
-  dirs.forEach(dir => {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-  });
+// Crear directorios si no existen
+const crearDirectorio = (ruta) => {
+  if (!fs.existsSync(ruta)) {
+    fs.mkdirSync(ruta, { recursive: true });
+  }
 };
 
-createUploadDirs();
+// Directorios de upload
+const UPLOAD_DIRS = {
+  cv: path.join(__dirname, '../../uploads/cv'),
+  fotos: path.join(__dirname, '../../uploads/fotos'),
+  documentos: path.join(__dirname, '../../uploads/documentos')
+};
 
-// Configuración de almacenamiento para CV
+// Crear todos los directorios
+Object.values(UPLOAD_DIRS).forEach(crearDirectorio);
+
+// ============================================
+// STORAGE PARA CVs
+// ============================================
 const storageCV = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/cv/');
+    cb(null, UPLOAD_DIRS.cv);
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
-    cb(null, `cv-${uniqueSuffix}${path.extname(file.originalname)}`);
+    const uniqueName = `${uuidv4()}_${Date.now()}${path.extname(file.originalname)}`;
+    cb(null, uniqueName);
   }
 });
 
-// Configuración de almacenamiento para fotos
-const storageFoto = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/fotos/');
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
-    cb(null, `foto-${uniqueSuffix}${path.extname(file.originalname)}`);
-  }
-});
-
-// Configuración de almacenamiento para documentos generales
-const storageDocumento = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/documentos/');
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
-    cb(null, `doc-${uniqueSuffix}${path.extname(file.originalname)}`);
-  }
-});
-
-// Filtros de archivos
 const fileFilterCV = (req, file, cb) => {
-  const allowedTypes = /pdf|docx|doc/;
-  const ext = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mime = allowedTypes.test(file.mimetype);
-
-  if (ext && mime) {
-    return cb(null, true);
+  const allowedMimes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+  
+  if (allowedMimes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Tipo de archivo no permitido. Solo PDF, DOC, DOCX.'), false);
   }
-  cb(new Error('Solo se permiten archivos PDF o DOCX para CV'));
 };
 
-const fileFilterFoto = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png/;
-  const ext = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mime = allowedTypes.test(file.mimetype);
-
-  if (ext && mime) {
-    return cb(null, true);
-  }
-  cb(new Error('Solo se permiten imágenes JPG o PNG'));
-};
-
-const fileFilterDocumento = (req, file, cb) => {
-  const allowedTypes = /pdf|docx|doc|jpg|jpeg|png/;
-  const ext = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mime = allowedTypes.test(file.mimetype);
-
-  if (ext && mime) {
-    return cb(null, true);
-  }
-  cb(new Error('Solo se permiten archivos PDF, DOCX o imágenes'));
-};
-
-// Middlewares de Multer
 const uploadCV = multer({
   storage: storageCV,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-  fileFilter: fileFilterCV
-}).single('cv');
+  fileFilter: fileFilterCV,
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
+});
+
+// ============================================
+// STORAGE PARA FOTOS
+// ============================================
+const storageFotos = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, UPLOAD_DIRS.fotos);
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = `${uuidv4()}_${Date.now()}${path.extname(file.originalname)}`;
+    cb(null, uniqueName);
+  }
+});
+
+const fileFilterFotos = (req, file, cb) => {
+  const allowedMimes = ['image/jpeg', 'image/png', 'image/jpg'];
+  
+  if (allowedMimes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Tipo de archivo no permitido. Solo JPG, JPEG, PNG.'), false);
+  }
+};
 
 const uploadFoto = multer({
-  storage: storageFoto,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-  fileFilter: fileFilterFoto
-}).single('foto');
+  storage: storageFotos,
+  fileFilter: fileFilterFotos,
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB
+});
+
+// ============================================
+// STORAGE PARA DOCUMENTOS (NUEVO)
+// ============================================
+const storageDocumentos = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, UPLOAD_DIRS.documentos);
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = `${uuidv4()}_${Date.now()}${path.extname(file.originalname)}`;
+    cb(null, uniqueName);
+  }
+});
+
+const fileFilterDocumentos = (req, file, cb) => {
+  const allowedMimes = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'image/jpeg',
+    'image/png',
+    'image/jpg'
+  ];
+  
+  if (allowedMimes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Tipo de archivo no permitido. Solo PDF, DOC, DOCX, JPG, PNG.'), false);
+  }
+};
 
 const uploadDocumento = multer({
-  storage: storageDocumento,
-  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB
-  fileFilter: fileFilterDocumento
-}).single('documento');
+  storage: storageDocumentos,
+  fileFilter: fileFilterDocumentos,
+  limits: { fileSize: 15 * 1024 * 1024 } // 15MB
+});
 
+// ============================================
+// EXPORTS
+// ============================================
 module.exports = {
   uploadCV,
   uploadFoto,
