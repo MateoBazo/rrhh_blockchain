@@ -4,7 +4,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 const morgan = require('morgan');
 const errorHandler = require('./middlewares/errorHandler');
-
+require('dotenv').config();
 const app = express();
 
 // Middlewares de seguridad
@@ -57,7 +57,7 @@ app.use('/api/candidatos', candidatoRoutes);
 // ============================================
 // RUTAS S005 (NUEVAS)
 // ============================================
-const uploadRoutes = require('./routes/upload');
+const uploadRoutes = require('./routes/uploadRoutes');
 const educacionRoutes = require('./routes/educacion');
 const experienciaRoutes = require('./routes/experiencia');
 const habilidadRoutes = require('./routes/habilidad');
@@ -66,6 +66,17 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/educacion', educacionRoutes);
 app.use('/api/experiencia', experienciaRoutes);
 app.use('/api/habilidades', habilidadRoutes);
+
+// Rutas nuevas (S006)
+
+app.use('/api/referencias', require('./routes/referenciasRoutes'));
+app.use('/api/certificaciones', require('./routes/certificacionesRoutes'));
+app.use('/api/idiomas', require('./routes/idiomasRoutes'));
+app.use('/api/documentos', require('./routes/documentosRoutes'));
+app.use('/api/contratos', require('./routes/contratosRoutes'));
+app.use('/api/notificaciones', require('./routes/notificacionesRoutes'));
+app.use('/api/blockchain', require('./routes/blockchainRoutes'));
+app.use('/api/analytics', require('./routes/analyticsRoutes'));
 
 // ============================================
 // MANEJO DE ERRORES

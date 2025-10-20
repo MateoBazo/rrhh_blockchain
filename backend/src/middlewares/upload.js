@@ -1,88 +1,108 @@
 // file: backend/src/middlewares/upload.js
 const multer = require('multer');
 const path = require('path');
-const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 
 // Crear carpetas si no existen
-const uploadDirs = {
-  cv: path.join(__dirname, '../../uploads/cv'),
-  fotos: path.join(__dirname, '../../uploads/fotos')
+const createUploadDirs = () => {
+  const dirs = ['uploads/cv', 'uploads/fotos', 'uploads/documentos'];
+  dirs.forEach(dir => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  });
 };
 
-Object.values(uploadDirs).forEach(dir => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-});
+createUploadDirs();
 
 // Configuración de almacenamiento para CV
 const storageCV = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, uploadDirs.cv);
+    cb(null, 'uploads/cv/');
   },
   filename: (req, file, cb) => {
-    // Formato: uuid_timestamp.extension
-    const uniqueName = `${uuidv4()}_${Date.now()}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+    cb(null, `cv-${uniqueSuffix}${path.extname(file.originalname)}`);
   }
 });
 
 // Configuración de almacenamiento para fotos
-const storageFotos = multer.diskStorage({
+const storageFoto = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, uploadDirs.fotos);
+    cb(null, 'uploads/fotos/');
   },
   filename: (req, file, cb) => {
-    const uniqueName = `${uuidv4()}_${Date.now()}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+    cb(null, `foto-${uniqueSuffix}${path.extname(file.originalname)}`);
   }
 });
 
-// Filtros de validación de tipo de archivo
+// Configuración de almacenamiento para documentos generales
+const storageDocumento = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/documentos/');
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+    cb(null, `doc-${uniqueSuffix}${path.extname(file.originalname)}`);
+  }
+});
+
+// Filtros de archivos
 const fileFilterCV = (req, file, cb) => {
-  const allowedMimes = [
-    'application/pdf',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // DOCX
-    'application/msword' // DOC
-  ];
-  
-  if (allowedMimes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Tipo de archivo no permitido. Solo PDF, DOC o DOCX.'), false);
+  const allowedTypes = /pdf|docx|doc/;
+  const ext = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+  const mime = allowedTypes.test(file.mimetype);
+
+  if (ext && mime) {
+    return cb(null, true);
   }
+  cb(new Error('Solo se permiten archivos PDF o DOCX para CV'));
 };
 
-const fileFilterFotos = (req, file, cb) => {
-  const allowedMimes = ['image/jpeg', 'image/png', 'image/jpg'];
-  
-  if (allowedMimes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Tipo de archivo no permitido. Solo JPG, JPEG o PNG.'), false);
+const fileFilterFoto = (req, file, cb) => {
+  const allowedTypes = /jpeg|jpg|png/;
+  const ext = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+  const mime = allowedTypes.test(file.mimetype);
+
+  if (ext && mime) {
+    return cb(null, true);
   }
+  cb(new Error('Solo se permiten imágenes JPG o PNG'));
 };
 
-// Middleware de upload para CV (max 10MB)
+const fileFilterDocumento = (req, file, cb) => {
+  const allowedTypes = /pdf|docx|doc|jpg|jpeg|png/;
+  const ext = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+  const mime = allowedTypes.test(file.mimetype);
+
+  if (ext && mime) {
+    return cb(null, true);
+  }
+  cb(new Error('Solo se permiten archivos PDF, DOCX o imágenes'));
+};
+
+// Middlewares de Multer
 const uploadCV = multer({
   storage: storageCV,
-  fileFilter: fileFilterCV,
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB
-  }
-});
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: fileFilterCV
+}).single('cv');
 
-// Middleware de upload para fotos (max 5MB)
 const uploadFoto = multer({
-  storage: storageFotos,
-  fileFilter: fileFilterFotos,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB
-  }
-});
+  storage: storageFoto,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: fileFilterFoto
+}).single('foto');
+
+const uploadDocumento = multer({
+  storage: storageDocumento,
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB
+  fileFilter: fileFilterDocumento
+}).single('documento');
 
 module.exports = {
   uploadCV,
-  uploadFoto
+  uploadFoto,
+  uploadDocumento
 };

@@ -4,12 +4,12 @@ const { DataTypes } = require('sequelize');
 module.exports = (sequelize) => {
   const AuditoriaAccion = sequelize.define('AuditoriaAccion', {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER.UNSIGNED,  
       primaryKey: true,
       autoIncrement: true
     },
     usuario_id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER.UNSIGNED,  
       allowNull: false,
       references: {
         model: 'usuarios',

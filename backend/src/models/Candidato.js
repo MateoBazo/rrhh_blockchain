@@ -4,12 +4,12 @@ const { sequelize } = require('../config/database');
 
 const Candidato = sequelize.define('candidatos', {
   id: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.INTEGER.UNSIGNED,  
     primaryKey: true,
     autoIncrement: true
   },
   usuario_id: { // 👈 FK a usuarios
-    type: DataTypes.INTEGER,
+    type: DataTypes.INTEGER.UNSIGNED,  
     allowNull: false,
     unique: true,
     references: {

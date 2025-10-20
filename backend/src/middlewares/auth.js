@@ -2,50 +2,32 @@
 const jwt = require('jsonwebtoken');
 const { Usuario } = require('../models');
 
-/**
- * Middleware para verificar JWT token
- */
 const verificarToken = async (req, res, next) => {
   try {
-    // Extraer token del header Authorization: Bearer <token>
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const token = req.headers.authorization?.split(' ')[1];
+
+    if (!token) {
       return res.status(401).json({
         success: false,
-        mensaje: 'Token no proporcionado'
+        message: 'Acceso denegado. Token no proporcionado.'
       });
     }
 
-    const token = authHeader.split(' ')[1];
-
-    // Verificar token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Buscar usuario
     const usuario = await Usuario.findByPk(decoded.id);
 
-    if (!usuario) {
+    if (!usuario || !usuario.activo) {
       return res.status(401).json({
         success: false,
-        mensaje: 'Usuario no encontrado'
+        message: 'Usuario no válido o inactivo.'
       });
     }
 
-    if (!usuario.activo) {
-      return res.status(403).json({
-        success: false,
-        mensaje: 'Usuario inactivo'
-      });
-    }
-
-    // Agregar usuario a req
-    req.user = {
+    req.usuario = {
       id: usuario.id,
       email: usuario.email,
-      rol: usuario.rol,
-      candidato_id: usuario.candidato?.id || null,
-      empresa_id: usuario.empresas?.[0]?.id || null
+      rol: usuario.rol
     };
 
     next();
@@ -53,42 +35,36 @@ const verificarToken = async (req, res, next) => {
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({
         success: false,
-        mensaje: 'Token inválido'
+        message: 'Token inválido.'
       });
     }
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({
         success: false,
-        mensaje: 'Token expirado'
+        message: 'Token expirado. Por favor, inicia sesión nuevamente.'
       });
     }
     return res.status(500).json({
       success: false,
-      mensaje: 'Error al verificar token'
+      message: 'Error al verificar autenticación.',
+      error: error.message
     });
   }
 };
 
-/**
- * Middleware para verificar roles (closure)
- * @param {Array} rolesPermitidos - Array de roles permitidos
- * @returns {Function} Middleware function
- */
 const verificarRoles = (rolesPermitidos) => {
   return (req, res, next) => {
-    if (!req.user) {
+    if (!req.usuario) {
       return res.status(401).json({
         success: false,
-        mensaje: 'No autenticado'
+        message: 'No autenticado.'
       });
     }
 
-    if (!rolesPermitidos.includes(req.user.rol)) {
+    if (!rolesPermitidos.includes(req.usuario.rol)) {
       return res.status(403).json({
         success: false,
-        mensaje: 'No tiene permisos para esta acción',
-        rolRequerido: rolesPermitidos,
-        rolActual: req.user.rol
+        message: `Acceso denegado. Se requiere rol: ${rolesPermitidos.join(' o ')}`
       });
     }
 
@@ -96,9 +72,7 @@ const verificarRoles = (rolesPermitidos) => {
   };
 };
 
-// ✅ EXPORTAR AMBOS (con alias)
 module.exports = {
   verificarToken,
-  verificarRoles,
-  esRol: verificarRoles  
+  verificarRoles
 };

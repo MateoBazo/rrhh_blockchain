@@ -4,7 +4,7 @@ const { DataTypes } = require('sequelize');
 module.exports = (sequelize) => {
   const RegistroBlockchain = sequelize.define('RegistroBlockchain', {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER.UNSIGNED,  
       primaryKey: true,
       autoIncrement: true
     },
@@ -14,7 +14,7 @@ module.exports = (sequelize) => {
       comment: 'Tipo de entidad asociada'
     },
     entidad_id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER.UNSIGNED,  
       allowNull: false,
       comment: 'ID de la entidad (polimórfico)'
     },

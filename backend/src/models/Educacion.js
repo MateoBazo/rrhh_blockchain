@@ -4,12 +4,12 @@ const { DataTypes } = require('sequelize');
 module.exports = (sequelize) => {
   const Educacion = sequelize.define('Educacion', {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER.UNSIGNED,  
       primaryKey: true,
       autoIncrement: true
     },
     candidato_id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER.UNSIGNED,  
       allowNull: false,
       references: {
         model: 'candidatos',

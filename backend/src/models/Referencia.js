@@ -4,12 +4,12 @@ const { DataTypes } = require('sequelize');
 module.exports = (sequelize) => {
   const Referencia = sequelize.define('Referencia', {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER.UNSIGNED,  // ✅ UNSIGNED
       primaryKey: true,
       autoIncrement: true
     },
     candidato_id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER.UNSIGNED,  // ✅ CAMBIAR A UNSIGNED
       allowNull: false,
       references: {
         model: 'candidatos',
@@ -40,7 +40,7 @@ module.exports = (sequelize) => {
       allowNull: true
     },
     relacion: {
-      type: DataTypes.ENUM('SUPERVISOR', 'COLEGA', 'PROFESOR', 'CLIENTE', 'OTRO'),
+      type: DataTypes.ENUM('SUPERVISOR', 'COLEGA', 'PROFESOR', 'CLIENTE', 'OTRO', 'JEFE_DIRECTO'),  // ✅ Agregar JEFE_DIRECTO
       allowNull: false
     },
     anos_conocidos: {

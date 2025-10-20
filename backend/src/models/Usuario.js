@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 
 const Usuario = sequelize.define('usuarios', {
   id: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.INTEGER.UNSIGNED,  
     primaryKey: true,
     autoIncrement: true
   },

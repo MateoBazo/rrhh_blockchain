@@ -2,13 +2,90 @@
 const { sequelize } = require('../config/database');
 const { Sequelize } = require('sequelize');
 
-// ✅ CORRECCIÓN: Importar directamente (no llamar como función)
+// ============================================
+// IMPORTAR E INICIALIZAR MODELOS
+// ============================================
+
+// Modelos base (ya inicializados directamente)
 const Usuario = require('./Usuario');
 const Empresa = require('./Empresa');
 const Candidato = require('./Candidato');
 
+// Modelos nuevos S006 (factories que necesitan sequelize)
+let Referencia, Idioma, Certificacion, Documento, ContratoLaboral;
+let NotificacionUsuario, RegistroBlockchain, AuditoriaAccion;
+let Educacion, ExperienciaLaboral, Habilidad;
+
+// Inicializar modelos S006 (con try-catch para los que no existan)
+try {
+  Referencia = require('./Referencia')(sequelize);
+} catch (e) {
+  console.warn('⚠️  Modelo Referencia no encontrado');
+}
+
+try {
+  Idioma = require('./Idioma')(sequelize);
+} catch (e) {
+  console.warn('⚠️  Modelo Idioma no encontrado');
+}
+
+try {
+  Certificacion = require('./Certificacion')(sequelize);
+} catch (e) {
+  console.warn('⚠️  Modelo Certificacion no encontrado');
+}
+
+try {
+  Documento = require('./Documento')(sequelize);
+} catch (e) {
+  console.warn('⚠️  Modelo Documento no encontrado');
+}
+
+try {
+  ContratoLaboral = require('./ContratoLaboral')(sequelize);
+} catch (e) {
+  console.warn('⚠️  Modelo ContratoLaboral no encontrado');
+}
+
+try {
+  NotificacionUsuario = require('./NotificacionUsuario')(sequelize);
+} catch (e) {
+  console.warn('⚠️  Modelo NotificacionUsuario no encontrado');
+}
+
+try {
+  RegistroBlockchain = require('./RegistroBlockchain')(sequelize);
+} catch (e) {
+  console.warn('⚠️  Modelo RegistroBlockchain no encontrado');
+}
+
+try {
+  AuditoriaAccion = require('./AuditoriaAccion')(sequelize);
+} catch (e) {
+  console.warn('⚠️  Modelo AuditoriaAccion no encontrado');
+}
+
+try {
+  Educacion = require('./Educacion')(sequelize);
+} catch (e) {
+  console.warn('⚠️  Modelo Educacion no encontrado');
+}
+
+try {
+  ExperienciaLaboral = require('./ExperienciaLaboral')(sequelize);
+} catch (e) {
+  console.warn('⚠️  Modelo ExperienciaLaboral no encontrado');
+}
+
+try {
+  Habilidad = require('./Habilidad')(sequelize);
+} catch (e) {
+  console.warn('⚠️  Modelo Habilidad no encontrado');
+}
+
 // ============================================
-// RELACIONES
+// RELACIONES BASE (solo Usuario-Candidato-Empresa)
+// Estas NO tienen método associate(), se definen aquí
 // ============================================
 
 // Usuario -> Candidato (1:1)
@@ -34,12 +111,43 @@ Empresa.belongsTo(Usuario, {
 });
 
 // ============================================
-// EXPORTAR
+// EJECUTAR ASOCIACIONES DE MODELOS FACTORY
+// Cada modelo factory define sus propias relaciones en associate()
 // ============================================
-const db = {
+
+const models = {
   Usuario,
   Empresa,
   Candidato,
+  Referencia,
+  Idioma,
+  Certificacion,
+  Documento,
+  ContratoLaboral,
+  NotificacionUsuario,
+  RegistroBlockchain,
+  AuditoriaAccion,
+  Educacion,
+  ExperienciaLaboral,
+  Habilidad
+};
+
+// Ejecutar associate() para cada modelo que lo tenga
+Object.keys(models).forEach(modelName => {
+  if (models[modelName] && typeof models[modelName].associate === 'function') {
+    try {
+      models[modelName].associate(models);
+    } catch (error) {
+      console.error(`❌ Error al asociar modelo ${modelName}:`, error.message);
+    }
+  }
+});
+
+// ============================================
+// EXPORTAR
+// ============================================
+const db = {
+  ...models,
   sequelize,
   Sequelize: require('sequelize')
 };
