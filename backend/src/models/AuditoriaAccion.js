@@ -31,7 +31,7 @@ module.exports = (sequelize) => {
       comment: 'Tabla afectada (ej: candidatos, empresas)'
     },
     entidad_id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER.UNSIGNED,
       allowNull: true,
       comment: 'ID del registro afectado'
     },

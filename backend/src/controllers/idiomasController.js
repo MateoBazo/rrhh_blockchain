@@ -1,217 +1,248 @@
 // file: backend/src/controllers/idiomasController.js
-const { Idioma } = require('../models');
-const { successResponse, errorResponse } = require('../utils/responses');
+const { Idioma, Candidato } = require('../models');
+const { exitoRespuesta, errorRespuesta } = require('../utils/responses');
 const { validationResult } = require('express-validator');
+const { Op } = require('sequelize');
 
-// Niveles CEFR válidos
-const NIVELES_VALIDOS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'NATIVO'];
+/**
+ * GET /api/idiomas
+ * Obtener idiomas de un candidato
+ */
+const obtenerIdiomas = async (req, res) => {
+  try {
+    const { candidato_id } = req.query;
 
-// Mapeo de niveles a números para comparación
-const NIVEL_VALOR = {
-  'A1': 1,
-  'A2': 2,
-  'B1': 3,
-  'B2': 4,
-  'C1': 5,
-  'C2': 6,
-  'NATIVO': 7
+    // Si no se proporciona candidato_id, obtener del usuario autenticado
+    let candidatoIdFiltro = candidato_id;
+
+    if (!candidatoIdFiltro) {
+      // Buscar candidato del usuario autenticado
+      const candidato = await Candidato.findOne({
+        where: { usuario_id: req.usuario.id }
+      });
+
+      if (!candidato) {
+        return errorRespuesta(res, 404, 'No se encontró perfil de candidato para este usuario.');
+      }
+
+      candidatoIdFiltro = candidato.id;
+    }
+
+    // RBAC: Solo el propio candidato, ADMIN o EMPRESA pueden ver idiomas
+    if (req.usuario.rol !== 'ADMIN' && req.usuario.rol !== 'EMPRESA') {
+      const candidato = await Candidato.findOne({
+        where: { usuario_id: req.usuario.id }
+      });
+
+      if (!candidato || candidato.id !== parseInt(candidatoIdFiltro)) {
+        return errorRespuesta(res, 403, 'No tienes permiso para ver estos idiomas.');
+      }
+    }
+
+    const idiomas = await Idioma.findAll({
+      where: { candidato_id: candidatoIdFiltro },
+      order: [['nivel_conversacion', 'DESC'], ['created_at', 'DESC']],
+      limit: 50 // LIMIT para prevenir queries sin límite
+    });
+
+    return exitoRespuesta(res, 200, 'Idiomas obtenidos exitosamente', {
+      total: idiomas.length,
+      idiomas
+    });
+
+  } catch (error) {
+    console.error('❌ Error al obtener idiomas:', error);
+    return errorRespuesta(res, 500, 'Error al obtener idiomas', error.message);
+  }
 };
 
 /**
- * @desc    Crear nuevo idioma
- * @route   POST /api/idiomas
- * @access  Private (CANDIDATO)
+ * GET /api/idiomas/:id
+ * Obtener un idioma específico por ID
  */
-exports.crearIdioma = async (req, res) => {
+const obtenerIdiomaPorId = async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return errorResponse(res, 'Errores de validación', 400, errors.array());
+    const { id } = req.params;
+
+    const idioma = await Idioma.findByPk(id, {
+      include: [{ 
+        model: Candidato, 
+        as: 'candidato',
+        attributes: ['id', 'nombres', 'apellido_paterno', 'usuario_id']
+      }]
+    });
+
+    if (!idioma) {
+      return errorRespuesta(res, 404, 'Idioma no encontrado.');
     }
 
-    const candidatoId = req.user.id;
-    const { idioma, nivel_conversacion, nivel_escritura, nivel_lectura } = req.body;
-
-    // Validación 1: Niveles válidos
-    if (!NIVELES_VALIDOS.includes(nivel_conversacion.toUpperCase())) {
-      return errorResponse(res, `Nivel de conversación inválido. Debe ser uno de: ${NIVELES_VALIDOS.join(', ')}`, 400);
-    }
-    if (!NIVELES_VALIDOS.includes(nivel_escritura.toUpperCase())) {
-      return errorResponse(res, `Nivel de escritura inválido. Debe ser uno de: ${NIVELES_VALIDOS.join(', ')}`, 400);
-    }
-    if (!NIVELES_VALIDOS.includes(nivel_lectura.toUpperCase())) {
-      return errorResponse(res, `Nivel de lectura inválido. Debe ser uno de: ${NIVELES_VALIDOS.join(', ')}`, 400);
+    // RBAC: Solo el propio candidato, ADMIN o EMPRESA pueden ver
+    if (req.usuario.rol !== 'ADMIN' && req.usuario.rol !== 'EMPRESA') {
+      if (idioma.candidato.usuario_id !== req.usuario.id) {
+        return errorRespuesta(res, 403, 'No tienes permiso para ver este idioma.');
+      }
     }
 
-    // Validación 2: nivel_conversacion >= nivel_escritura (habilidad oral suele ser indicador general)
-    const valorConv = NIVEL_VALOR[nivel_conversacion.toUpperCase()];
-    const valorEscr = NIVEL_VALOR[nivel_escritura.toUpperCase()];
-    
-    if (valorConv < valorEscr) {
-      return errorResponse(
-        res,
-        'El nivel de conversación debe ser igual o superior al nivel de escritura',
-        400
-      );
+    return exitoRespuesta(res, 200, 'Idioma obtenido exitosamente', idioma);
+
+  } catch (error) {
+    console.error('❌ Error al obtener idioma:', error);
+    return errorRespuesta(res, 500, 'Error al obtener idioma', error.message);
+  }
+};
+
+/**
+ * POST /api/idiomas
+ * Crear un nuevo idioma
+ */
+const crearIdioma = async (req, res) => {
+  try {
+    const errores = validationResult(req);
+    if (!errores.isEmpty()) {
+      return errorRespuesta(res, 400, 'Errores de validación', errores.array());
     }
 
-    // Validación 3: Idioma único por candidato
+    // Buscar candidato del usuario autenticado
+    const candidato = await Candidato.findOne({
+      where: { usuario_id: req.usuario.id }
+    });
+
+    if (!candidato) {
+      return errorRespuesta(res, 404, 'Debe crear un perfil de candidato primero.');
+    }
+
+    const {
+      idioma,
+      nivel_lectura,
+      nivel_escritura,
+      nivel_conversacion,
+      certificacion,
+      puntuacion,
+      fecha_certificacion
+    } = req.body;
+
+    // Validación de negocio: nivel conversación >= nivel escritura
+    const nivelesOrden = { 'A1': 1, 'A2': 2, 'B1': 3, 'B2': 4, 'C1': 5, 'C2': 6, 'NATIVO': 7 };
+
+    if (nivel_conversacion && nivel_escritura) {
+      if (nivelesOrden[nivel_conversacion] < nivelesOrden[nivel_escritura]) {
+        return errorRespuesta(res, 400, 'El nivel de conversación debe ser mayor o igual al nivel de escritura.');
+      }
+    }
+
+    // Verificar que no exista el mismo idioma ya registrado
     const idiomaExistente = await Idioma.findOne({
       where: {
-        candidato_id: candidatoId,
-        idioma: idioma.trim()
+        candidato_id: candidato.id,
+        idioma: { [Op.like]: idioma }
       }
     });
 
     if (idiomaExistente) {
-      return errorResponse(res, 'Ya tienes este idioma registrado', 400);
+      return errorRespuesta(res, 409, `El idioma ${idioma} ya está registrado para este candidato.`);
     }
 
     const nuevoIdioma = await Idioma.create({
-      candidato_id: candidatoId,
-      idioma: idioma.trim(),
-      nivel_conversacion: nivel_conversacion.toUpperCase(),
-      nivel_escritura: nivel_escritura.toUpperCase(),
-      nivel_lectura: nivel_lectura.toUpperCase()
+      candidato_id: candidato.id,
+      idioma,
+      nivel_lectura,
+      nivel_escritura,
+      nivel_conversacion,
+      certificacion,
+      puntuacion,
+      fecha_certificacion
     });
 
-    return successResponse(res, nuevoIdioma, 'Idioma creado exitosamente', 201);
+    return exitoRespuesta(res, 201, 'Idioma creado exitosamente', nuevoIdioma);
+
   } catch (error) {
-    console.error('Error en crearIdioma:', error);
-    return errorResponse(res, 'Error al crear el idioma', 500);
+    console.error('❌ Error al crear idioma:', error);
+    return errorRespuesta(res, 500, 'Error al crear idioma', error.message);
   }
 };
 
 /**
- * @desc    Obtener todos los idiomas del candidato
- * @route   GET /api/idiomas
- * @access  Private (CANDIDATO)
+ * PUT /api/idiomas/:id
+ * Actualizar un idioma
  */
-exports.obtenerIdiomas = async (req, res) => {
+const actualizarIdioma = async (req, res) => {
   try {
-    const candidatoId = req.user.id;
+    const errores = validationResult(req);
+    if (!errores.isEmpty()) {
+      return errorRespuesta(res, 400, 'Errores de validación', errores.array());
+    }
 
-    const idiomas = await Idioma.findAll({
-      where: { candidato_id: candidatoId },
-      order: [['idioma', 'ASC']]
-    });
-
-    return successResponse(res, idiomas, `${idiomas.length} idioma(s) encontrado(s)`);
-  } catch (error) {
-    console.error('Error en obtenerIdiomas:', error);
-    return errorResponse(res, 'Error al obtener idiomas', 500);
-  }
-};
-
-/**
- * @desc    Obtener idioma por ID
- * @route   GET /api/idiomas/:id
- * @access  Private (CANDIDATO - solo propios)
- */
-exports.obtenerIdiomaPorId = async (req, res) => {
-  try {
     const { id } = req.params;
-    const candidatoId = req.user.id;
 
-    const idioma = await Idioma.findOne({
-      where: { id, candidato_id: candidatoId }
+    const idioma = await Idioma.findByPk(id, {
+      include: [{ model: Candidato, as: 'candidato' }]
     });
 
     if (!idioma) {
-      return errorResponse(res, 'Idioma no encontrado', 404);
+      return errorRespuesta(res, 404, 'Idioma no encontrado.');
     }
 
-    return successResponse(res, idioma, 'Idioma obtenido exitosamente');
+    // Verificar ownership: solo el candidato propietario puede actualizar
+    if (idioma.candidato.usuario_id !== req.usuario.id && req.usuario.rol !== 'ADMIN') {
+      return errorRespuesta(res, 403, 'No tienes permiso para actualizar este idioma.');
+    }
+
+    // Validación de negocio si se actualiza nivel
+    const { nivel_lectura, nivel_escritura, nivel_conversacion } = req.body;
+
+    if (nivel_conversacion && nivel_escritura) {
+      const nivelesOrden = { 'A1': 1, 'A2': 2, 'B1': 3, 'B2': 4, 'C1': 5, 'C2': 6, 'NATIVO': 7 };
+
+      if (nivelesOrden[nivel_conversacion] < nivelesOrden[nivel_escritura]) {
+        return errorRespuesta(res, 400, 'El nivel de conversación debe ser mayor o igual al nivel de escritura.');
+      }
+    }
+
+    await idioma.update(req.body);
+
+    return exitoRespuesta(res, 200, 'Idioma actualizado exitosamente', idioma);
+
   } catch (error) {
-    console.error('Error en obtenerIdiomaPorId:', error);
-    return errorResponse(res, 'Error al obtener idioma', 500);
+    console.error('❌ Error al actualizar idioma:', error);
+    return errorRespuesta(res, 500, 'Error al actualizar idioma', error.message);
   }
 };
 
 /**
- * @desc    Actualizar idioma
- * @route   PUT /api/idiomas/:id
- * @access  Private (CANDIDATO - solo propios)
+ * DELETE /api/idiomas/:id
+ * Eliminar un idioma
  */
-exports.actualizarIdioma = async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return errorResponse(res, 'Errores de validación', 400, errors.array());
-    }
-
-    const { id } = req.params;
-    const candidatoId = req.user.id;
-    const { idioma, nivel_conversacion, nivel_escritura, nivel_lectura } = req.body;
-
-    const idiomaExistente = await Idioma.findOne({
-      where: { id, candidato_id: candidatoId }
-    });
-
-    if (!idiomaExistente) {
-      return errorResponse(res, 'Idioma no encontrado', 404);
-    }
-
-    // Validar niveles si se proporcionan
-    if (nivel_conversacion && !NIVELES_VALIDOS.includes(nivel_conversacion.toUpperCase())) {
-      return errorResponse(res, `Nivel de conversación inválido. Debe ser uno de: ${NIVELES_VALIDOS.join(', ')}`, 400);
-    }
-    if (nivel_escritura && !NIVELES_VALIDOS.includes(nivel_escritura.toUpperCase())) {
-      return errorResponse(res, `Nivel de escritura inválido. Debe ser uno de: ${NIVELES_VALIDOS.join(', ')}`, 400);
-    }
-    if (nivel_lectura && !NIVELES_VALIDOS.includes(nivel_lectura.toUpperCase())) {
-      return errorResponse(res, `Nivel de lectura inválido. Debe ser uno de: ${NIVELES_VALIDOS.join(', ')}`, 400);
-    }
-
-    // Validar relación conversación >= escritura
-    const nivelConv = nivel_conversacion ? nivel_conversacion.toUpperCase() : idiomaExistente.nivel_conversacion;
-    const nivelEscr = nivel_escritura ? nivel_escritura.toUpperCase() : idiomaExistente.nivel_escritura;
-    
-    if (NIVEL_VALOR[nivelConv] < NIVEL_VALOR[nivelEscr]) {
-      return errorResponse(
-        res,
-        'El nivel de conversación debe ser igual o superior al nivel de escritura',
-        400
-      );
-    }
-
-    await idiomaExistente.update({
-      idioma: idioma ? idioma.trim() : idiomaExistente.idioma,
-      nivel_conversacion: nivelConv,
-      nivel_escritura: nivelEscr,
-      nivel_lectura: nivel_lectura ? nivel_lectura.toUpperCase() : idiomaExistente.nivel_lectura
-    });
-
-    return successResponse(res, idiomaExistente, 'Idioma actualizado exitosamente');
-  } catch (error) {
-    console.error('Error en actualizarIdioma:', error);
-    return errorResponse(res, 'Error al actualizar idioma', 500);
-  }
-};
-
-/**
- * @desc    Eliminar idioma
- * @route   DELETE /api/idiomas/:id
- * @access  Private (CANDIDATO - solo propios)
- */
-exports.eliminarIdioma = async (req, res) => {
+const eliminarIdioma = async (req, res) => {
   try {
     const { id } = req.params;
-    const candidatoId = req.user.id;
 
-    const idioma = await Idioma.findOne({
-      where: { id, candidato_id: candidatoId }
+    const idioma = await Idioma.findByPk(id, {
+      include: [{ model: Candidato, as: 'candidato' }]
     });
 
     if (!idioma) {
-      return errorResponse(res, 'Idioma no encontrado', 404);
+      return errorRespuesta(res, 404, 'Idioma no encontrado.');
+    }
+
+    // Verificar ownership
+    if (idioma.candidato.usuario_id !== req.usuario.id && req.usuario.rol !== 'ADMIN') {
+      return errorRespuesta(res, 403, 'No tienes permiso para eliminar este idioma.');
     }
 
     await idioma.destroy();
 
-    return successResponse(res, null, 'Idioma eliminado exitosamente');
+    return exitoRespuesta(res, 200, 'Idioma eliminado exitosamente');
+
   } catch (error) {
-    console.error('Error en eliminarIdioma:', error);
-    return errorResponse(res, 'Error al eliminar idioma', 500);
+    console.error('❌ Error al eliminar idioma:', error);
+    return errorRespuesta(res, 500, 'Error al eliminar idioma', error.message);
   }
+};
+
+module.exports = {
+  obtenerIdiomas,
+  obtenerIdiomaPorId,  // ✅ AGREGADO
+  crearIdioma,
+  actualizarIdioma,
+  eliminarIdioma
 };

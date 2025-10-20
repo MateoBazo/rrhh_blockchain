@@ -1,433 +1,340 @@
 // file: backend/src/controllers/analyticsController.js
-const { Candidato, Empresa, ContratoLaboral, Habilidad, Educacion, ExperienciaLaboral } = require('../models');
-const { successResponse, errorResponse } = require('../utils/responses');
-const { Op, fn, col, literal } = require('sequelize');
+const { 
+  Candidato, 
+  Usuario, 
+  Empresa, 
+  ContratoLaboral, 
+  Educacion, 
+  ExperienciaLaboral 
+} = require('../models');
+const { exitoRespuesta, errorRespuesta } = require('../utils/responses');
+const { Op } = require('sequelize');
 
 /**
- * @desc    Estadísticas de candidatos
- * @route   GET /api/analytics/candidatos-stats
- * @access  Private (ADMIN)
+ * TIMEOUT WRAPPER: Envuelve queries pesadas con timeout
  */
-exports.estadisticasCandidatos = async (req, res) => {
+const queryConTimeout = async (promesa, timeoutMs = 10000) => {
+  return Promise.race([
+    promesa,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Query timeout excedido')), timeoutMs)
+    )
+  ]);
+};
+
+/**
+ * GET /api/analytics/candidatos-stats
+ * Estadísticas agregadas de candidatos (solo ADMIN)
+ */
+const getCandidatosStats = async (req, res) => {
   try {
-    if (req.user.rol !== 'ADMIN') {
-      return errorResponse(res, 'Solo administradores pueden ver analytics', 403);
-    }
+    // TIMEOUT 10s para prevenir crashes
+    const stats = await queryConTimeout(
+      Promise.all([
+        // Total candidatos activos
+        Candidato.count({
+          where: { perfil_publico: true },
+          limit: 1000 // LIMIT para prevenir queries sin límite
+        }),
 
-    // 1. Total de candidatos
-    const totalCandidatos = await Candidato.count();
+        // Distribución por estado laboral
+        Candidato.findAll({
+          attributes: [
+            'estado_laboral',
+            [Candidato.sequelize.fn('COUNT', Candidato.sequelize.col('id')), 'total']
+          ],
+          where: { perfil_publico: true },
+          group: ['estado_laboral'],
+          limit: 10,
+          raw: true // Evita overhead de instancias Sequelize
+        }),
 
-    // 2. Candidatos por nivel educativo
-    const porNivelEducativo = await Candidato.findAll({
-      attributes: [
-        'nivel_educativo',
-        [fn('COUNT', col('id')), 'total']
-      ],
-      group: ['nivel_educativo'],
-      raw: true
-    });
+        // Distribución por nivel educativo
+        Candidato.findAll({
+          attributes: [
+            'nivel_educativo',
+            [Candidato.sequelize.fn('COUNT', Candidato.sequelize.col('id')), 'total']
+          ],
+          where: { perfil_publico: true },
+          group: ['nivel_educativo'],
+          limit: 10,
+          raw: true
+        }),
 
-    // 3. Candidatos por estado laboral
-    const disponibles = await Candidato.count({ where: { disponible_trabajar: true } });
-    const busquedaActiva = await Candidato.count({ where: { busqueda_activa: true } });
-    const conContrato = await ContratoLaboral.count({ where: { estado: 'ACTIVO' }, distinct: true, col: 'candidato_id' });
+        // Promedio años experiencia
+        Candidato.findOne({
+          attributes: [
+            [Candidato.sequelize.fn('AVG', Candidato.sequelize.col('anios_experiencia')), 'promedio'],
+            [Candidato.sequelize.fn('MAX', Candidato.sequelize.col('anios_experiencia')), 'maximo'],
+            [Candidato.sequelize.fn('MIN', Candidato.sequelize.col('anios_experiencia')), 'minimo']
+          ],
+          where: { 
+            perfil_publico: true,
+            anios_experiencia: { [Op.not]: null }
+          },
+          raw: true
+        }),
 
-    // 4. Skills más demandadas (TOP 10)
-    const skillsTop = await Habilidad.findAll({
-      attributes: [
-        'nombre_habilidad',
-        [fn('COUNT', col('id')), 'total_candidatos']
-      ],
-      group: ['nombre_habilidad'],
-      order: [[literal('total_candidatos'), 'DESC']],
-      limit: 10,
-      raw: true
-    });
+        // Distribución geográfica (top 10 ciudades)
+        Candidato.findAll({
+          attributes: [
+            'ciudad',
+            'departamento',
+            [Candidato.sequelize.fn('COUNT', Candidato.sequelize.col('id')), 'total']
+          ],
+          where: { 
+            perfil_publico: true,
+            ciudad: { [Op.not]: null }
+          },
+          group: ['ciudad', 'departamento'],
+          order: [[Candidato.sequelize.literal('total'), 'DESC']],
+          limit: 10,
+          raw: true
+        }),
 
-    // 5. Distribución geográfica
-    const porPais = await Candidato.findAll({
-      attributes: [
-        'pais',
-        [fn('COUNT', col('id')), 'total']
-      ],
-      where: { pais: { [Op.ne]: null } },
-      group: ['pais'],
-      order: [[literal('total'), 'DESC']],
-      raw: true
-    });
-
-    const porDepartamento = await Candidato.findAll({
-      attributes: [
-        'departamento',
-        [fn('COUNT', col('id')), 'total']
-      ],
-      where: { departamento: { [Op.ne]: null } },
-      group: ['departamento'],
-      order: [[literal('total'), 'DESC']],
-      limit: 10,
-      raw: true
-    });
-
-    const porCiudad = await Candidato.findAll({
-      attributes: [
-        'ciudad',
-        [fn('COUNT', col('id')), 'total']
-      ],
-      where: { ciudad: { [Op.ne]: null } },
-      group: ['ciudad'],
-      order: [[literal('total'), 'DESC']],
-      limit: 10,
-      raw: true
-    });
-
-    // 6. Promedio de años de experiencia
-    const candidatosConExperiencia = await Candidato.findAll({
-      attributes: ['id'],
-      include: [
-        {
-          model: ExperienciaLaboral,
-          as: 'experienciaLaboral',
-          attributes: ['fecha_inicio', 'fecha_fin']
-        }
-      ]
-    });
-
-    let totalMesesExperiencia = 0;
-    let candidatosContados = 0;
-
-    candidatosConExperiencia.forEach(candidato => {
-      if (candidato.experienciaLaboral && candidato.experienciaLaboral.length > 0) {
-        const meses = candidato.experienciaLaboral.reduce((total, exp) => {
-          const inicio = new Date(exp.fecha_inicio);
-          const fin = exp.fecha_fin ? new Date(exp.fecha_fin) : new Date();
-          const meses = (fin.getFullYear() - inicio.getFullYear()) * 12 + (fin.getMonth() - inicio.getMonth());
-          return total + Math.max(0, meses);
-        }, 0);
-        
-        totalMesesExperiencia += meses;
-        candidatosContados++;
-      }
-    });
-
-    const promedioAnosExperiencia = candidatosContados > 0
-      ? (totalMesesExperiencia / candidatosContados / 12).toFixed(1)
-      : 0;
-
-    // 7. Candidatos por modalidad de trabajo preferida
-    const porModalidad = await Candidato.findAll({
-      attributes: [
-        'modalidad_trabajo',
-        [fn('COUNT', col('id')), 'total']
-      ],
-      where: { modalidad_trabajo: { [Op.ne]: null } },
-      group: ['modalidad_trabajo'],
-      raw: true
-    });
-
-    return successResponse(
-      res,
-      {
-        resumen: {
-          total_candidatos: totalCandidatos,
-          disponibles_trabajar: disponibles,
-          busqueda_activa: busquedaActiva,
-          con_contrato_activo: conContrato,
-          promedio_anos_experiencia: parseFloat(promedioAnosExperiencia)
-        },
-        nivel_educativo: porNivelEducativo,
-        estado_laboral: {
-          disponibles,
-          busqueda_activa: busquedaActiva,
-          con_contrato: conContrato,
-          no_disponibles: totalCandidatos - disponibles
-        },
-        skills_top_10: skillsTop,
-        distribucion_geografica: {
-          por_pais: porPais,
-          por_departamento: porDepartamento,
-          por_ciudad: porCiudad
-        },
-        modalidad_trabajo: porModalidad
-      },
-      'Estadísticas de candidatos obtenidas exitosamente'
+        // Promedio completitud perfil
+        Candidato.findOne({
+          attributes: [
+            [Candidato.sequelize.fn('AVG', Candidato.sequelize.col('completitud_perfil')), 'promedio_completitud']
+          ],
+          where: { perfil_publico: true },
+          raw: true
+        })
+      ]),
+      10000 // Timeout 10s
     );
+
+    // Destructurar resultados
+    const [
+      totalCandidatos,
+      porEstadoLaboral,
+      porNivelEducativo,
+      experienciaStats,
+      distribucionGeografica,
+      completitudStats
+    ] = stats;
+
+    return exitoRespuesta(res, 200, 'Estadísticas de candidatos obtenidas', {
+      total_candidatos: totalCandidatos || 0,
+      distribucion_estado_laboral: porEstadoLaboral || [],
+      distribucion_nivel_educativo: porNivelEducativo || [],
+      experiencia: {
+        promedio: Math.round(parseFloat(experienciaStats?.promedio || 0) * 10) / 10,
+        maximo: experienciaStats?.maximo || 0,
+        minimo: experienciaStats?.minimo || 0
+      },
+      top_ciudades: distribucionGeografica || [],
+      promedio_completitud_perfil: Math.round(parseFloat(completitudStats?.promedio_completitud || 0))
+    });
+
   } catch (error) {
-    console.error('Error en estadisticasCandidatos:', error);
-    return errorResponse(res, 'Error al obtener estadísticas de candidatos', 500);
+    console.error('❌ Error en getCandidatosStats:', error);
+    
+    // Manejo específico de timeout
+    if (error.message.includes('timeout')) {
+      return errorRespuesta(res, 504, 'Timeout en query de analytics. Intente más tarde.');
+    }
+    
+    return errorRespuesta(res, 500, 'Error al obtener estadísticas de candidatos', error.message);
   }
 };
 
 /**
- * @desc    Estadísticas de empresas
- * @route   GET /api/analytics/empresas-stats
- * @access  Private (ADMIN)
+ * GET /api/analytics/empresas-stats
+ * Estadísticas agregadas de empresas (solo ADMIN)
  */
-exports.estadisticasEmpresas = async (req, res) => {
+const getEmpresasStats = async (req, res) => {
   try {
-    if (req.user.rol !== 'ADMIN') {
-      return errorResponse(res, 'Solo administradores pueden ver analytics', 403);
-    }
+    const stats = await queryConTimeout(
+      Promise.all([
+        // Total empresas
+        Empresa.count({
+          limit: 1000
+        }),
 
-    // 1. Total de empresas
-    const totalEmpresas = await Empresa.count();
+        // Empresas verificadas vs no verificadas
+        Empresa.findAll({
+          attributes: [
+            'verificada',
+            [Empresa.sequelize.fn('COUNT', Empresa.sequelize.col('id')), 'total']
+          ],
+          group: ['verificada'],
+          limit: 2,
+          raw: true
+        }),
 
-    // 2. Empresas verificadas vs no verificadas
-    const verificadas = await Empresa.count({ where: { verificada: true } });
-    const noVerificadas = totalEmpresas - verificadas;
+        // Distribución por sector
+        Empresa.findAll({
+          attributes: [
+            'sector',
+            [Empresa.sequelize.fn('COUNT', Empresa.sequelize.col('id')), 'total']
+          ],
+          where: { sector: { [Op.not]: null } },
+          group: ['sector'],
+          order: [[Empresa.sequelize.literal('total'), 'DESC']],
+          limit: 10,
+          raw: true
+        }),
 
-    // 3. Empresas por sector
-    const porSector = await Empresa.findAll({
-      attributes: [
-        'sector',
-        [fn('COUNT', col('id')), 'total']
-      ],
-      where: { sector: { [Op.ne]: null } },
-      group: ['sector'],
-      order: [[literal('total'), 'DESC']],
-      raw: true
-    });
+        // Distribución por tamaño
+        Empresa.findAll({
+          attributes: [
+            'tamanio',
+            [Empresa.sequelize.fn('COUNT', Empresa.sequelize.col('id')), 'total']
+          ],
+          where: { tamanio: { [Op.not]: null } },
+          group: ['tamanio'],
+          limit: 10,
+          raw: true
+        }),
 
-    // 4. Empresas por tamaño
-    const porTamano = await Empresa.findAll({
-      attributes: [
-        'tamano_empresa',
-        [fn('COUNT', col('id')), 'total']
-      ],
-      where: { tamano_empresa: { [Op.ne]: null } },
-      group: ['tamano_empresa'],
-      order: [[literal('total'), 'DESC']],
-      raw: true
-    });
-
-    // 5. Empresas con más contratos activos
-    const empresasConMasContratos = await Empresa.findAll({
-      attributes: [
-        'id',
-        'nombre_comercial',
-        'razon_social',
-        'sector',
-        [fn('COUNT', col('contratos.id')), 'total_contratos_activos']
-      ],
-      include: [
-        {
-          model: ContratoLaboral,
-          as: 'contratos',
-          attributes: [],
-          where: { estado: 'ACTIVO' },
-          required: true
-        }
-      ],
-      group: ['Empresa.id'],
-      order: [[literal('total_contratos_activos'), 'DESC']],
-      limit: 10,
-      raw: true
-    });
-
-    // 6. Distribución geográfica de empresas
-    const porPais = await Empresa.findAll({
-      attributes: [
-        'pais',
-        [fn('COUNT', col('id')), 'total']
-      ],
-      where: { pais: { [Op.ne]: null } },
-      group: ['pais'],
-      order: [[literal('total'), 'DESC']],
-      raw: true
-    });
-
-    return successResponse(
-      res,
-      {
-        resumen: {
-          total_empresas: totalEmpresas,
-          verificadas,
-          no_verificadas: noVerificadas,
-          porcentaje_verificadas: ((verificadas / totalEmpresas) * 100).toFixed(1)
-        },
-        por_sector: porSector,
-        por_tamano: porTamano,
-        top_10_con_mas_contratos: empresasConMasContratos,
-        distribucion_geografica: porPais
-      },
-      'Estadísticas de empresas obtenidas exitosamente'
+        // Top 10 ciudades con más empresas
+        Empresa.findAll({
+          attributes: [
+            'ciudad',
+            'departamento',
+            [Empresa.sequelize.fn('COUNT', Empresa.sequelize.col('id')), 'total']
+          ],
+          where: { ciudad: { [Op.not]: null } },
+          group: ['ciudad', 'departamento'],
+          order: [[Empresa.sequelize.literal('total'), 'DESC']],
+          limit: 10,
+          raw: true
+        })
+      ]),
+      10000
     );
+
+    const [
+      totalEmpresas,
+      porVerificacion,
+      porSector,
+      porTamanio,
+      topCiudades
+    ] = stats;
+
+    return exitoRespuesta(res, 200, 'Estadísticas de empresas obtenidas', {
+      total_empresas: totalEmpresas || 0,
+      por_verificacion: porVerificacion || [],
+      distribucion_sector: porSector || [],
+      distribucion_tamanio: porTamanio || [],
+      top_ciudades: topCiudades || []
+    });
+
   } catch (error) {
-    console.error('Error en estadisticasEmpresas:', error);
-    return errorResponse(res, 'Error al obtener estadísticas de empresas', 500);
+    console.error('❌ Error en getEmpresasStats:', error);
+    
+    if (error.message.includes('timeout')) {
+      return errorRespuesta(res, 504, 'Timeout en query de analytics. Intente más tarde.');
+    }
+    
+    return errorRespuesta(res, 500, 'Error al obtener estadísticas de empresas', error.message);
   }
 };
 
 /**
- * @desc    Estadísticas de contratos laborales
- * @route   GET /api/analytics/contratos-stats
- * @access  Private (ADMIN)
+ * GET /api/analytics/contratos-stats
+ * Estadísticas de contratos laborales (solo ADMIN)
  */
-exports.estadisticasContratos = async (req, res) => {
+const getContratosStats = async (req, res) => {
   try {
-    if (req.user.rol !== 'ADMIN') {
-      return errorResponse(res, 'Solo administradores pueden ver analytics', 403);
-    }
+    const stats = await queryConTimeout(
+      Promise.all([
+        // Total contratos
+        ContratoLaboral.count({
+          limit: 1000
+        }),
 
-    // 1. Total de contratos y por estado
-    const totalContratos = await ContratoLaboral.count();
-    const activos = await ContratoLaboral.count({ where: { estado: 'ACTIVO' } });
-    const finalizados = await ContratoLaboral.count({ where: { estado: 'FINALIZADO' } });
-    const suspendidos = await ContratoLaboral.count({ where: { estado: 'SUSPENDIDO' } });
-    const borradores = await ContratoLaboral.count({ where: { estado: 'BORRADOR' } });
+        // Distribución por estado
+        ContratoLaboral.findAll({
+          attributes: [
+            'estado',
+            [ContratoLaboral.sequelize.fn('COUNT', ContratoLaboral.sequelize.col('id')), 'total']
+          ],
+          group: ['estado'],
+          limit: 10,
+          raw: true
+        }),
 
-    // 2. Contratos por tipo
-    const porTipo = await ContratoLaboral.findAll({
-      attributes: [
-        'tipo_contrato',
-        [fn('COUNT', col('id')), 'total']
-      ],
-      group: ['tipo_contrato'],
-      order: [[literal('total'), 'DESC']],
-      raw: true
-    });
+        // Distribución por tipo
+        ContratoLaboral.findAll({
+          attributes: [
+            'tipo_contrato',
+            [ContratoLaboral.sequelize.fn('COUNT', ContratoLaboral.sequelize.col('id')), 'total']
+          ],
+          where: { tipo_contrato: { [Op.not]: null } },
+          group: ['tipo_contrato'],
+          limit: 10,
+          raw: true
+        }),
 
-    // 3. Promedio de salarios por tipo de contrato
-    const promedioSalarioPorTipo = await ContratoLaboral.findAll({
-      attributes: [
-        'tipo_contrato',
-        [fn('AVG', col('salario_mensual')), 'salario_promedio'],
-        [fn('MIN', col('salario_mensual')), 'salario_minimo'],
-        [fn('MAX', col('salario_mensual')), 'salario_maximo'],
-        [fn('COUNT', col('id')), 'total_contratos']
-      ],
-      where: { salario_mensual:{ [Op.ne]: null } },
-      group: ['tipo_contrato'],
-      order: [[literal('salario_promedio'), 'DESC']],
-      raw: true
-    });
+        // Promedio salario (solo contratos activos)
+        ContratoLaboral.findOne({
+          attributes: [
+            [ContratoLaboral.sequelize.fn('AVG', ContratoLaboral.sequelize.col('salario')), 'promedio'],
+            [ContratoLaboral.sequelize.fn('MAX', ContratoLaboral.sequelize.col('salario')), 'maximo'],
+            [ContratoLaboral.sequelize.fn('MIN', ContratoLaboral.sequelize.col('salario')), 'minimo']
+          ],
+          where: { 
+            estado: 'ACTIVO',
+            salario: { [Op.not]: null }
+          },
+          raw: true
+        }),
 
-    // 4. Promedio de salarios por cargo (TOP 10)
-    const promedioSalarioPorCargo = await ContratoLaboral.findAll({
-      attributes: [
-        'cargo',
-        [fn('AVG', col('salario_mensual')), 'salario_promedio'],
-        [fn('COUNT', col('id')), 'total_contratos']
-      ],
-      where: {
-        salario_mensual: { [Op.ne]: null },
-        cargo: { [Op.ne]: null }
-      },
-      group: ['cargo'],
-      order: [[literal('salario_promedio'), 'DESC']],
-      limit: 10,
-      raw: true
-    });
-
-    // 5. Contratos por jornada laboral
-    const porJornada = await ContratoLaboral.findAll({
-      attributes: [
-        'jornada_laboral',
-        [fn('COUNT', col('id')), 'total']
-      ],
-      where: { jornada_laboral: { [Op.ne]: null } },
-      group: ['jornada_laboral'],
-      raw: true
-    });
-
-    // 6. Duración promedio de contratos finalizados (en meses)
-    const contratosFinalizados = await ContratoLaboral.findAll({
-      where: {
-        estado: 'FINALIZADO',
-        fecha_inicio: { [Op.ne]: null },
-        fecha_fin: { [Op.ne]: null }
-      },
-      attributes: ['fecha_inicio', 'fecha_fin'],
-      raw: true
-    });
-
-    let duracionTotalMeses = 0;
-    contratosFinalizados.forEach(contrato => {
-      const inicio = new Date(contrato.fecha_inicio);
-      const fin = new Date(contrato.fecha_fin);
-      const meses = (fin.getFullYear() - inicio.getFullYear()) * 12 + (fin.getMonth() - inicio.getMonth());
-      duracionTotalMeses += Math.max(0, meses);
-    });
-
-    const duracionPromedio = contratosFinalizados.length > 0
-      ? (duracionTotalMeses / contratosFinalizados.length).toFixed(1)
-      : 0;
-
-    // 7. Distribución de monedas
-    const porMoneda = await ContratoLaboral.findAll({
-      attributes: [
-        'moneda',
-        [fn('COUNT', col('id')), 'total']
-      ],
-      where: { moneda: { [Op.ne]: null } },
-      group: ['moneda'],
-      raw: true
-    });
-
-    // 8. Sectores con mejores salarios (cruzando con empresas)
-    const salariosPorSector = await ContratoLaboral.findAll({
-      attributes: [
-        [col('empresa.sector'), 'sector'],
-        [fn('AVG', col('ContratoLaboral.salario_mensual')), 'salario_promedio'],
-        [fn('COUNT', col('ContratoLaboral.id')), 'total_contratos']
-      ],
-      include: [
-        {
-          model: Empresa,
-          as: 'empresa',
-          attributes: [],
-          where: { sector: { [Op.ne]: null } }
-        }
-      ],
-      where: { salario_mensual: { [Op.ne]: null } },
-      group: ['empresa.sector'],
-      order: [[literal('salario_promedio'), 'DESC']],
-      raw: true
-    });
-
-    return successResponse(
-      res,
-      {
-        resumen: {
-          total_contratos: totalContratos,
-          activos,
-          finalizados,
-          suspendidos,
-          borradores,
-          duracion_promedio_meses: parseFloat(duracionPromedio)
-        },
-        por_tipo: porTipo,
-        por_estado: {
-          activos,
-          finalizados,
-          suspendidos,
-          borradores
-        },
-        por_jornada: porJornada,
-        por_moneda: porMoneda,
-        salarios: {
-          por_tipo_contrato: promedioSalarioPorTipo.map(item => ({
-            tipo_contrato: item.tipo_contrato,
-            salario_promedio: parseFloat(item.salario_promedio).toFixed(2),
-            salario_minimo: parseFloat(item.salario_minimo).toFixed(2),
-            salario_maximo: parseFloat(item.salario_maximo).toFixed(2),
-            total_contratos: item.total_contratos
-          })),
-          por_cargo_top_10: promedioSalarioPorCargo.map(item => ({
-            cargo: item.cargo,
-            salario_promedio: parseFloat(item.salario_promedio).toFixed(2),
-            total_contratos: item.total_contratos
-          })),
-          por_sector: salariosPorSector.map(item => ({
-            sector: item.sector,
-            salario_promedio: parseFloat(item.salario_promedio).toFixed(2),
-            total_contratos: item.total_contratos
-          }))
-        }
-      },
-      'Estadísticas de contratos obtenidas exitosamente'
+        // Contratos creados por mes (últimos 6 meses)
+        ContratoLaboral.findAll({
+          attributes: [
+            [ContratoLaboral.sequelize.fn('DATE_FORMAT', ContratoLaboral.sequelize.col('created_at'), '%Y-%m'), 'mes'],
+            [ContratoLaboral.sequelize.fn('COUNT', ContratoLaboral.sequelize.col('id')), 'total']
+          ],
+          where: {
+            created_at: {
+              [Op.gte]: Candidato.sequelize.literal('DATE_SUB(NOW(), INTERVAL 6 MONTH)')
+            }
+          },
+          group: [Candidato.sequelize.fn('DATE_FORMAT', Candidato.sequelize.col('created_at'), '%Y-%m')],
+          order: [[Candidato.sequelize.literal('mes'), 'DESC']],
+          limit: 6,
+          raw: true
+        })
+      ]),
+      10000
     );
+
+    const [
+      totalContratos,
+      porEstado,
+      porTipo,
+      salarioStats,
+      contratosPorMes
+    ] = stats;
+
+    return exitoRespuesta(res, 200, 'Estadísticas de contratos obtenidas', {
+      total_contratos: totalContratos || 0,
+      distribucion_estado: porEstado || [],
+      distribucion_tipo: porTipo || [],
+      salarios: {
+        promedio: Math.round(parseFloat(salarioStats?.promedio || 0)),
+        maximo: salarioStats?.maximo || 0,
+        minimo: salarioStats?.minimo || 0
+      },
+      contratos_ultimos_meses: contratosPorMes || []
+    });
+
   } catch (error) {
-    console.error('Error en estadisticasContratos:', error);
-    return errorResponse(res, 'Error al obtener estadísticas de contratos', 500);
+    console.error('❌ Error en getContratosStats:', error);
+    
+    if (error.message.includes('timeout')) {
+      return errorRespuesta(res, 504, 'Timeout en query de analytics. Intente más tarde.');
+    }
+    
+    return errorRespuesta(res, 500, 'Error al obtener estadísticas de contratos', error.message);
   }
+};
+
+module.exports = {
+  getCandidatosStats,
+  getEmpresasStats,
+  getContratosStats
 };

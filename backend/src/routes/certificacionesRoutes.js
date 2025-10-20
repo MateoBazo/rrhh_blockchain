@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
-const { verificarToken } = require('../middlewares/auth');
+const { verificarToken, verificarRoles } = require('../middlewares/auth');
 const {
   crearCertificacion,
   obtenerCertificaciones,
@@ -13,19 +13,20 @@ const {
 
 router.use(verificarToken);
 
+// ✅ CORREGIDO: Usar nombres de campos del modelo
 const validacionCertificacion = [
-  body('nombre_certificacion').trim().notEmpty().withMessage('Nombre de certificación es requerido'),
-  body('entidad_emisora').trim().notEmpty().withMessage('Entidad emisora es requerida'),
-  body('fecha_emision').isISO8601().withMessage('Fecha de emisión inválida'),
+  body('nombre').trim().notEmpty().withMessage('Nombre es requerido'),
+  body('institucion_emisora').trim().notEmpty().withMessage('Institución emisora es requerida'),
+  body('fecha_obtencion').isISO8601().withMessage('Fecha de obtención inválida'),
   body('fecha_vencimiento').optional().isISO8601().withMessage('Fecha de vencimiento inválida'),
-  body('codigo_credencial').optional().trim(),
-  body('url_verificacion').optional().isURL().withMessage('URL de verificación inválida')
+  body('credencial_id').optional().trim(),
+  body('credencial_url').optional().isURL().withMessage('URL inválida')
 ];
 
-router.post('/', validacionCertificacion, crearCertificacion);
+router.post('/', verificarRoles(['CANDIDATO', 'ADMIN']), validacionCertificacion, crearCertificacion);
 router.get('/', obtenerCertificaciones);
 router.get('/:id', obtenerCertificacionPorId);
-router.put('/:id', validacionCertificacion, actualizarCertificacion);
-router.delete('/:id', eliminarCertificacion);
+router.put('/:id', verificarRoles(['CANDIDATO', 'ADMIN']), validacionCertificacion, actualizarCertificacion);
+router.delete('/:id', verificarRoles(['CANDIDATO', 'ADMIN']), eliminarCertificacion);
 
 module.exports = router;

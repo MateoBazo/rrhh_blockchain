@@ -2,31 +2,37 @@
 const express = require('express');
 const router = express.Router();
 const { uploadCV, uploadFoto } = require('../middlewares/upload');
-const uploadController = require('../controllers/uploadController');
+const { subirCV, subirFoto, descargarCV } = require('../controllers/uploadController');
 const { verificarToken, verificarRoles } = require('../middlewares/auth');
 
-// POST /api/upload/cv - Subir CV
-// CAMBIO: uploadCV ya es una función middleware completa, NO llamar .single() de nuevo
+/**
+ * POST /api/upload/cv - Subir CV
+ * uploadCV debe ser usado con .single('cv')
+ */
 router.post('/cv',
   verificarToken,
-  verificarRoles(['CANDIDATO']),
-  uploadCV, // <-- SIN .single('cv')
-  uploadController.subirCV
+  verificarRoles(['CANDIDATO', 'ADMIN']),
+  uploadCV.single('cv'),  // ✅ AGREGADO .single('cv')
+  subirCV
 );
 
-// POST /api/upload/foto - Subir foto de perfil
-// CAMBIO: uploadFoto ya es una función middleware completa, NO llamar .single() de nuevo
+/**
+ * POST /api/upload/foto - Subir foto de perfil
+ * uploadFoto debe ser usado con .single('foto')
+ */
 router.post('/foto',
   verificarToken,
-  verificarRoles(['CANDIDATO']),
-  uploadFoto, // <-- SIN .single('foto')
-  uploadController.subirFoto
+  verificarRoles(['CANDIDATO', 'ADMIN']),
+  uploadFoto.single('foto'),  // ✅ AGREGADO .single('foto')
+  subirFoto
 );
 
-// GET /api/upload/cv/:id - Descargar CV
-router.get('/cv/:id',
+/**
+ * GET /api/upload/cv/:candidatoId - Descargar CV
+ */
+router.get('/cv/:candidatoId',
   verificarToken,
-  uploadController.descargarCV
+  descargarCV
 );
 
 module.exports = router;

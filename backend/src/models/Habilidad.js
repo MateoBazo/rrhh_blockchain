@@ -29,7 +29,7 @@ module.exports = (sequelize) => {
       allowNull: false
     },
     anos_experiencia: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER.UNSIGNED,
       allowNull: true
     },
     certificacion: {

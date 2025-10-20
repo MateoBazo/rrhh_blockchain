@@ -17,7 +17,7 @@ module.exports = (sequelize) => {
       }
     },
     empresa_id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,
       references: {
         model: 'empresas',

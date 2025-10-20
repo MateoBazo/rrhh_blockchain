@@ -79,7 +79,7 @@ const Candidato = sequelize.define('candidatos', {
     allowNull: true
   },
   anios_experiencia: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.INTEGER.UNSIGNED,
     allowNull: true,
     defaultValue: 0
   },
@@ -128,7 +128,7 @@ const Candidato = sequelize.define('candidatos', {
     defaultValue: false
   },
   completitud_perfil: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.INTEGER.UNSIGNED,
     defaultValue: 0,
     validate: {
       min: 0,

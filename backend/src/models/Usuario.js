@@ -43,7 +43,7 @@ const Usuario = sequelize.define('usuarios', {
     allowNull: true
   },
   intentos_login_fallidos: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.INTEGER.UNSIGNED,
     defaultValue: 0
   },
   bloqueado_hasta: {

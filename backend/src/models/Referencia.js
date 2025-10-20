@@ -44,7 +44,7 @@ module.exports = (sequelize) => {
       allowNull: false
     },
     anos_conocidos: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER.UNSIGNED,
       allowNull: true
     },
     notas: {

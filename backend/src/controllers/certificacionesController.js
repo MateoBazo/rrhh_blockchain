@@ -1,206 +1,234 @@
 // file: backend/src/controllers/certificacionesController.js
-const { Certificacion } = require('../models');
-const { successResponse, errorResponse } = require('../utils/responses');
+const { Certificacion, Candidato } = require('../models');
+const { exitoRespuesta, errorRespuesta } = require('../utils/responses');
 const { validationResult } = require('express-validator');
 
 /**
- * @desc    Crear nueva certificación
- * @route   POST /api/certificaciones
- * @access  Private (CANDIDATO)
+ * POST /api/certificaciones
+ * Crear nueva certificación
  */
-exports.crearCertificacion = async (req, res) => {
+const crearCertificacion = async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return errorResponse(res, 'Errores de validación', 400, errors.array());
+    const errores = validationResult(req);
+    if (!errores.isEmpty()) {
+      return errorRespuesta(res, 400, 'Errores de validación', errores.array());
     }
 
-    const candidatoId = req.user.id;
-    const {
-      nombre_certificacion,
-      entidad_emisora,
-      fecha_emision,
-      fecha_vencimiento,
-      codigo_credencial,
-      url_verificacion
-    } = req.body;
-
-    // Validación: fecha_vencimiento debe ser futura (si se proporciona)
-    if (fecha_vencimiento) {
-      const fechaVenc = new Date(fecha_vencimiento);
-      const hoy = new Date();
-      hoy.setHours(0, 0, 0, 0);
-      
-      if (fechaVenc < hoy) {
-        return errorResponse(res, 'La fecha de vencimiento debe ser futura o igual a hoy', 400);
-      }
-    }
-
-    // Validación: fecha_emision ≤ hoy
-    if (fecha_emision) {
-      const fechaEmis = new Date(fecha_emision);
-      const hoy = new Date();
-      hoy.setHours(23, 59, 59, 999);
-      
-      if (fechaEmis > hoy) {
-        return errorResponse(res, 'La fecha de emisión no puede ser futura', 400);
-      }
-    }
-
-    const certificacion = await Certificacion.create({
-      candidato_id: candidatoId,
-      nombre_certificacion,
-      entidad_emisora,
-      fecha_emision,
-      fecha_vencimiento,
-      codigo_credencial,
-      url_verificacion
+    // ✅ CORREGIDO: req.usuario en lugar de req.user
+    const candidato = await Candidato.findOne({
+      where: { usuario_id: req.usuario.id }
     });
 
-    return successResponse(res, certificacion, 'Certificación creada exitosamente', 201);
+    if (!candidato) {
+      return errorRespuesta(res, 404, 'Debe crear un perfil de candidato primero.');
+    }
+
+    // ✅ CORREGIDO: Usar nombres de campos del modelo Certificacion.js
+    const {
+      nombre,
+      institucion_emisora,
+      fecha_obtencion,
+      fecha_vencimiento,
+      credencial_id,
+      credencial_url,
+      habilidades_relacionadas,
+      descripcion
+    } = req.body;
+
+    // Validar fechas
+    if (fecha_vencimiento && new Date(fecha_vencimiento) < new Date(fecha_obtencion)) {
+      return errorRespuesta(res, 400, 'La fecha de vencimiento debe ser posterior a la fecha de obtención.');
+    }
+
+    if (fecha_obtencion && new Date(fecha_obtencion) > new Date()) {
+      return errorRespuesta(res, 400, 'La fecha de obtención no puede ser futura.');
+    }
+
+    const nuevaCertificacion = await Certificacion.create({
+      candidato_id: candidato.id,
+      nombre,
+      institucion_emisora,
+      fecha_obtencion,
+      fecha_vencimiento,
+      credencial_id,
+      credencial_url,
+      habilidades_relacionadas,
+      descripcion
+    });
+
+    return exitoRespuesta(res, 201, 'Certificación creada exitosamente', nuevaCertificacion);
+
   } catch (error) {
-    console.error('Error en crearCertificacion:', error);
-    return errorResponse(res, 'Error al crear la certificación', 500);
+    console.error('❌ Error al crear certificación:', error);
+    return errorRespuesta(res, 500, 'Error al crear certificación', error.message);
   }
 };
 
 /**
- * @desc    Obtener todas las certificaciones del candidato
- * @route   GET /api/certificaciones
- * @access  Private (CANDIDATO)
+ * GET /api/certificaciones
+ * Obtener certificaciones del candidato
  */
-exports.obtenerCertificaciones = async (req, res) => {
+const obtenerCertificaciones = async (req, res) => {
   try {
-    const candidatoId = req.user.id;
+    const { candidato_id } = req.query;
+
+    let candidatoIdFiltro = candidato_id;
+
+    if (!candidatoIdFiltro) {
+      const candidato = await Candidato.findOne({
+        where: { usuario_id: req.usuario.id }
+      });
+
+      if (!candidato) {
+        return errorRespuesta(res, 404, 'No se encontró perfil de candidato para este usuario.');
+      }
+
+      candidatoIdFiltro = candidato.id;
+    }
+
+    // RBAC
+    if (req.usuario.rol !== 'ADMIN' && req.usuario.rol !== 'EMPRESA') {
+      const candidato = await Candidato.findOne({
+        where: { usuario_id: req.usuario.id }
+      });
+
+      if (!candidato || candidato.id !== parseInt(candidatoIdFiltro)) {
+        return errorRespuesta(res, 403, 'No tienes permiso para ver estas certificaciones.');
+      }
+    }
 
     const certificaciones = await Certificacion.findAll({
-      where: { candidato_id: candidatoId },
-      order: [['fecha_emision', 'DESC']]
+      where: { candidato_id: candidatoIdFiltro },
+      order: [['fecha_obtencion', 'DESC'], ['created_at', 'DESC']],
+      limit: 50
     });
 
-    return successResponse(res, certificaciones, `${certificaciones.length} certificación(es) encontrada(s)`);
+    return exitoRespuesta(res, 200, 'Certificaciones obtenidas exitosamente', {
+      total: certificaciones.length,
+      certificaciones
+    });
+
   } catch (error) {
-    console.error('Error en obtenerCertificaciones:', error);
-    return errorResponse(res, 'Error al obtener certificaciones', 500);
+    console.error('❌ Error al obtener certificaciones:', error);
+    return errorRespuesta(res, 500, 'Error al obtener certificaciones', error.message);
   }
 };
 
 /**
- * @desc    Obtener certificación por ID
- * @route   GET /api/certificaciones/:id
- * @access  Private (CANDIDATO - solo propias)
+ * GET /api/certificaciones/:id
+ * Obtener certificación por ID
  */
-exports.obtenerCertificacionPorId = async (req, res) => {
+const obtenerCertificacionPorId = async (req, res) => {
   try {
     const { id } = req.params;
-    const candidatoId = req.user.id;
 
-    const certificacion = await Certificacion.findOne({
-      where: { id, candidato_id: candidatoId }
+    const certificacion = await Certificacion.findByPk(id, {
+      include: [{ 
+        model: Candidato, 
+        as: 'candidato',
+        attributes: ['id', 'nombres', 'apellido_paterno', 'usuario_id']
+      }]
     });
 
     if (!certificacion) {
-      return errorResponse(res, 'Certificación no encontrada', 404);
+      return errorRespuesta(res, 404, 'Certificación no encontrada.');
     }
 
-    return successResponse(res, certificacion, 'Certificación obtenida exitosamente');
-  } catch (error) {
-    console.error('Error en obtenerCertificacionPorId:', error);
-    return errorResponse(res, 'Error al obtener certificación', 500);
-  }
-};
-
-/**
- * @desc    Actualizar certificación
- * @route   PUT /api/certificaciones/:id
- * @access  Private (CANDIDATO - solo propias)
- */
-exports.actualizarCertificacion = async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return errorResponse(res, 'Errores de validación', 400, errors.array());
-    }
-
-    const { id } = req.params;
-    const candidatoId = req.user.id;
-    const {
-      nombre_certificacion,
-      entidad_emisora,
-      fecha_emision,
-      fecha_vencimiento,
-      codigo_credencial,
-      url_verificacion
-    } = req.body;
-
-    const certificacion = await Certificacion.findOne({
-      where: { id, candidato_id: candidatoId }
-    });
-
-    if (!certificacion) {
-      return errorResponse(res, 'Certificación no encontrada', 404);
-    }
-
-    // Validar fechas si se proporcionan
-    if (fecha_vencimiento) {
-      const fechaVenc = new Date(fecha_vencimiento);
-      const hoy = new Date();
-      hoy.setHours(0, 0, 0, 0);
-      
-      if (fechaVenc < hoy) {
-        return errorResponse(res, 'La fecha de vencimiento debe ser futura o igual a hoy', 400);
+    // RBAC
+    if (req.usuario.rol !== 'ADMIN' && req.usuario.rol !== 'EMPRESA') {
+      if (certificacion.candidato.usuario_id !== req.usuario.id) {
+        return errorRespuesta(res, 403, 'No tienes permiso para ver esta certificación.');
       }
     }
 
-    if (fecha_emision) {
-      const fechaEmis = new Date(fecha_emision);
-      const hoy = new Date();
-      hoy.setHours(23, 59, 59, 999);
-      
-      if (fechaEmis > hoy) {
-        return errorResponse(res, 'La fecha de emisión no puede ser futura', 400);
-      }
-    }
+    return exitoRespuesta(res, 200, 'Certificación obtenida exitosamente', certificacion);
 
-    await certificacion.update({
-      nombre_certificacion: nombre_certificacion || certificacion.nombre_certificacion,
-      entidad_emisora: entidad_emisora || certificacion.entidad_emisora,
-      fecha_emision: fecha_emision || certificacion.fecha_emision,
-      fecha_vencimiento: fecha_vencimiento !== undefined ? fecha_vencimiento : certificacion.fecha_vencimiento,
-      codigo_credencial: codigo_credencial !== undefined ? codigo_credencial : certificacion.codigo_credencial,
-      url_verificacion: url_verificacion !== undefined ? url_verificacion : certificacion.url_verificacion
-    });
-
-    return successResponse(res, certificacion, 'Certificación actualizada exitosamente');
   } catch (error) {
-    console.error('Error en actualizarCertificacion:', error);
-    return errorResponse(res, 'Error al actualizar certificación', 500);
+    console.error('❌ Error al obtener certificación:', error);
+    return errorRespuesta(res, 500, 'Error al obtener certificación', error.message);
   }
 };
 
 /**
- * @desc    Eliminar certificación
- * @route   DELETE /api/certificaciones/:id
- * @access  Private (CANDIDATO - solo propias)
+ * PUT /api/certificaciones/:id
+ * Actualizar certificación
  */
-exports.eliminarCertificacion = async (req, res) => {
+const actualizarCertificacion = async (req, res) => {
   try {
-    const { id } = req.params;
-    const candidatoId = req.user.id;
+    const errores = validationResult(req);
+    if (!errores.isEmpty()) {
+      return errorRespuesta(res, 400, 'Errores de validación', errores.array());
+    }
 
-    const certificacion = await Certificacion.findOne({
-      where: { id, candidato_id: candidatoId }
+    const { id } = req.params;
+
+    const certificacion = await Certificacion.findByPk(id, {
+      include: [{ model: Candidato, as: 'candidato' }]
     });
 
     if (!certificacion) {
-      return errorResponse(res, 'Certificación no encontrada', 404);
+      return errorRespuesta(res, 404, 'Certificación no encontrada.');
+    }
+
+    // Verificar ownership
+    if (certificacion.candidato.usuario_id !== req.usuario.id && req.usuario.rol !== 'ADMIN') {
+      return errorRespuesta(res, 403, 'No tienes permiso para actualizar esta certificación.');
+    }
+
+    // Validar fechas
+    const { fecha_obtencion, fecha_vencimiento } = req.body;
+    
+    if (fecha_vencimiento && fecha_obtencion) {
+      if (new Date(fecha_vencimiento) < new Date(fecha_obtencion)) {
+        return errorRespuesta(res, 400, 'La fecha de vencimiento debe ser posterior a la fecha de obtención.');
+      }
+    }
+
+    await certificacion.update(req.body);
+
+    return exitoRespuesta(res, 200, 'Certificación actualizada exitosamente', certificacion);
+
+  } catch (error) {
+    console.error('❌ Error al actualizar certificación:', error);
+    return errorRespuesta(res, 500, 'Error al actualizar certificación', error.message);
+  }
+};
+
+/**
+ * DELETE /api/certificaciones/:id
+ * Eliminar certificación
+ */
+const eliminarCertificacion = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const certificacion = await Certificacion.findByPk(id, {
+      include: [{ model: Candidato, as: 'candidato' }]
+    });
+
+    if (!certificacion) {
+      return errorRespuesta(res, 404, 'Certificación no encontrada.');
+    }
+
+    // Verificar ownership
+    if (certificacion.candidato.usuario_id !== req.usuario.id && req.usuario.rol !== 'ADMIN') {
+      return errorRespuesta(res, 403, 'No tienes permiso para eliminar esta certificación.');
     }
 
     await certificacion.destroy();
 
-    return successResponse(res, null, 'Certificación eliminada exitosamente');
+    return exitoRespuesta(res, 200, 'Certificación eliminada exitosamente');
+
   } catch (error) {
-    console.error('Error en eliminarCertificacion:', error);
-    return errorResponse(res, 'Error al eliminar certificación', 500);
+    console.error('❌ Error al eliminar certificación:', error);
+    return errorRespuesta(res, 500, 'Error al eliminar certificación', error.message);
   }
+};
+
+module.exports = {
+  crearCertificacion,
+  obtenerCertificaciones,
+  obtenerCertificacionPorId,
+  actualizarCertificacion,
+  eliminarCertificacion
 };

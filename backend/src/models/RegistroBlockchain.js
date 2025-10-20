@@ -34,7 +34,7 @@ module.exports = (sequelize) => {
       comment: 'Hash de la transacción blockchain'
     },
     bloque_numero: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER.UNSIGNED,
       allowNull: true
     },
     red: {
@@ -56,7 +56,7 @@ module.exports = (sequelize) => {
       defaultValue: 'PENDIENTE'
     },
     usuario_id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,
       references: {
         model: 'usuarios',
