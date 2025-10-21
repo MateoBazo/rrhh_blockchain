@@ -12,9 +12,8 @@ const iniciarServidor = async () => {
     // 1. Probar conexión a MySQL
     await testConnection();
 
-    // 2. Sincronizar modelos con DB (NO usar en producción, usar migraciones)
-    // IMPORTANTE: sync({ force: true }) ELIMINA TODAS LAS TABLAS
-    // Para desarrollo: sync({ alter: true }) actualiza estructura
+    // 2. Sincronizar modelos con DB 
+  
     if (process.env.NODE_ENV === 'development') {
       console.log('⚙️  Sincronizando modelos con base de datos...');
       await sequelize.sync({ alter: false }); // Cambia a true si quieres auto-migrar
@@ -54,4 +53,4 @@ process.on('SIGTERM', async () => {
 });
 
 // Iniciar
-iniciarServidor();//.
+iniciarServidor();

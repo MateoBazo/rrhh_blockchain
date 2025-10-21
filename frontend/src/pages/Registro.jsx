@@ -32,13 +32,34 @@ export default function Registro() {
   const onSubmit = async (data) => {
     setIsLoading(true);
     try {
+      console.log('📝 Datos del formulario:', data);
       const result = await registerUser(data);
       
+      console.log('✅ Resultado registro:', result);
+      
       if (result.success) {
-        navigate('/login');
+        // Si hay auto-login, redirigir al dashboard
+        if (result.autoLogin && result.user) {
+          console.log('🚀 Auto-login exitoso, redirigiendo a dashboard...');
+          const userRole = result.user.rol;
+          
+          if (userRole === 'ADMIN') {
+            navigate('/admin/dashboard');
+          } else if (userRole === 'EMPRESA') {
+            navigate('/empresa/dashboard');
+          } else if (userRole === 'CANDIDATO') {
+            navigate('/candidato/dashboard');
+          } else {
+            navigate('/dashboard');
+          }
+        } else {
+          // Sin auto-login, ir a login
+          console.log('📝 Registro exitoso, redirigiendo a login...');
+          navigate('/login');
+        }
       }
     } catch (error) {
-      console.error('Error en registro:', error);
+      console.error('❌ Error en formulario registro:', error);
     } finally {
       setIsLoading(false);
     }

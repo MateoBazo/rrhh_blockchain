@@ -1,41 +1,34 @@
 // file: backend/src/utils/responses.js
 /**
  * Funciones helper para respuestas HTTP consistentes
- * Soporta tanto español como inglés para compatibilidad
+ * Formato en INGLÉS para compatibilidad con frontend
  */
 
-// Implementación base en español
-const exitoRespuesta = (res, statusCode = 200, mensaje, datos = null) => {
-  return res.status(statusCode).json({
-    exito: true,
-    mensaje,
-    datos
-  });
-};
-
-const errorRespuesta = (res, statusCode = 500, mensaje, errores = null) => {
-  return res.status(statusCode).json({
-    exito: false,
-    mensaje,
-    errores
-  });
-};
-
-// Aliases en inglés que retornan estructura en español
-// (para compatibilidad con controladores nuevos)
 const successResponse = (res, statusCode = 200, message, data = null) => {
-  return exitoRespuesta(res, statusCode, message, data);
+  return res.status(statusCode).json({
+    success: true,
+    status: statusCode,
+    message,
+    data
+  });
 };
 
 const errorResponse = (res, statusCode = 500, message, errors = null) => {
-  return errorRespuesta(res, statusCode, message, errors);
+  return res.status(statusCode).json({
+    success: false,
+    status: statusCode,
+    message,
+    error: errors
+  });
 };
 
+// Aliases en español (por si algún controlador viejo los usa)
+const exitoRespuesta = successResponse;
+const errorRespuesta = errorResponse;
+
 module.exports = {
-  // Español (original)
-  exitoRespuesta,
-  errorRespuesta,
-  // Inglés (alias para compatibilidad)
   successResponse,
-  errorResponse
+  errorResponse,
+  exitoRespuesta,
+  errorRespuesta
 };
