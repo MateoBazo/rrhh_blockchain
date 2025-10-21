@@ -13,6 +13,7 @@ import Dashboard from '../pages/Dashboard';
 import CandidatoDashboard from '../pages/CandidatoDashboard';
 import EmpresaDashboard from '../pages/EmpresaDashboard';
 import AdminDashboard from '../pages/AdminDashboard';
+import PerfilUsuario from '../pages/PerfilUsuario';
 
 export default function AppRoutes() {
   return (
@@ -43,7 +44,15 @@ export default function AppRoutes() {
               </ProtectedRoute>
             }
           />
-
+          {/* 🆕 AGREGAR: Perfil de Usuario (Candidato) */}
+          <Route
+            path="/perfil"
+            element={
+              <ProtectedRoute allowedRoles={['CANDIDATO']}>
+                <PerfilUsuario />
+              </ProtectedRoute>
+            }
+          />
           {/* Dashboard Empresa */}
           <Route
             path="/empresa/dashboard"

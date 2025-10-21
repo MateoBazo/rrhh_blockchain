@@ -1,6 +1,6 @@
 // file: src/routes/ProtectedRoute.jsx
 import { Navigate } from 'react-router-dom';
-import useAuth from '../hooks/useAuth';
+import { useAuth } from '../hooks/useAuth';
 import Loader from '../components/common/Loader';
 
 export default function ProtectedRoute({ children, allowedRoles = [] }) {

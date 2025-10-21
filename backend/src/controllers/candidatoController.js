@@ -1,10 +1,72 @@
 // file: backend/src/controllers/candidatoController.js
-const { Candidato, Usuario } = require('../models');
+const { Candidato, Usuario, Educacion, ExperienciaLaboral, Habilidad, Certificacion, Idioma, Referencia, Documento, ContratoLaboral, Empresa } = require('../models');
 const { exitoRespuesta, errorRespuesta } = require('../utils/responses');
 const { validationResult } = require('express-validator');
+const { Op } = require('sequelize');
 
 /**
+ * 🆕 Obtener perfil del candidato del usuario logueado
+ * GET /api/candidatos/me
+ */
+const obtenerMiPerfil = async (req, res) => {
+  try {
+    // Buscar candidato asociado al usuario logueado
+    let candidato = await Candidato.findOne({
+      where: { usuario_id: req.usuario.id },
+      include: [
+        {
+          model: Usuario,
+          as: 'usuario',
+          attributes: ['id', 'email', 'rol', 'activo']
+        }
+      ]
+    });
+
+    if (!candidato) {
+      // Si no existe, crear uno con los campos mínimos requeridos
+      candidato = await Candidato.create({
+        usuario_id: req.usuario.id,
+        nombres: 'Sin completar',              // ✅ CORREGIDO: nombres (NOT NULL)
+        apellido_paterno: 'Sin completar',    // ✅ CORREGIDO: apellido_paterno (NOT NULL)
+        apellido_materno: '',                  // ✅ Opcional
+        ci: null,
+        telefono: null,
+        profesion: null,
+        nivel_educativo: null,
+        estado_laboral: null,
+        disponibilidad: null,
+        modalidad_preferida: null,
+        perfil_publico: true
+      });
+
+      // Recargar con relaciones
+      candidato = await Candidato.findByPk(candidato.id, {
+        include: [
+          {
+            model: Usuario,
+            as: 'usuario',
+            attributes: ['id', 'email', 'rol', 'activo']
+          }
+        ]
+      });
+
+      return exitoRespuesta(res, 201, 'Perfil creado automáticamente', candidato);
+    }
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+    return exitoRespuesta(res, 200, 'Perfil obtenido', candidato);
+
+  } catch (error) {
+    console.error('❌ Error al obtener mi perfil:', error);
+    return errorRespuesta(res, 500, 'Error al obtener perfil', error.message);
+  }
+};
+/**
  * Obtener todos los candidatos (con paginación y filtros)
+ * GET /api/candidatos
  */
 const obtenerCandidatos = async (req, res) => {
   try {
@@ -27,7 +89,7 @@ const obtenerCandidatos = async (req, res) => {
     if (nivel_educativo) where.nivel_educativo = nivel_educativo;
 
     // Solo mostrar perfiles públicos (a menos que sea admin)
-    if (req.usuario.rol !== 'superadmin' && req.usuario.rol !== 'admin_empresa') {
+    if (req.usuario.rol !== 'ADMIN' && req.usuario.rol !== 'admin_empresa') {
       where.perfil_publico = true;
     }
 
@@ -35,12 +97,12 @@ const obtenerCandidatos = async (req, res) => {
       where,
       limit: parseInt(limite),
       offset: parseInt(offset),
-      order: [['completitud_perfil', 'DESC'], ['created_at', 'DESC']],
+      order: [['completitud_perfil', 'DESC'], ['createdAt', 'DESC']],
       include: [
         {
           model: Usuario,
           as: 'usuario',
-          attributes: ['id', 'email', 'verificado', 'activo']
+          attributes: ['id', 'email', 'activo']
         }
       ]
     });
@@ -60,6 +122,7 @@ const obtenerCandidatos = async (req, res) => {
 
 /**
  * Obtener candidato por ID
+ * GET /api/candidatos/:id
  */
 const obtenerCandidatoPorId = async (req, res) => {
   try {
@@ -70,7 +133,7 @@ const obtenerCandidatoPorId = async (req, res) => {
         {
           model: Usuario,
           as: 'usuario',
-          attributes: ['id', 'email', 'verificado', 'activo']
+          attributes: ['id', 'email', 'rol', 'activo'] // ✅ SIN nombre/apellido
         }
       ]
     });
@@ -79,11 +142,13 @@ const obtenerCandidatoPorId = async (req, res) => {
       return errorRespuesta(res, 404, 'Candidato no encontrado.');
     }
 
+    // Verificar permisos
+    const esPropio = candidato.usuario_id === req.usuario.id;
+    const esAdmin = req.usuario.rol === 'ADMIN';
+    const esEmpresa = req.usuario.rol === 'EMPRESA';
+
     // Verificar si el perfil es público o si es el propio usuario
-    if (!candidato.perfil_publico && 
-        candidato.usuario_id !== req.usuario.id &&
-        req.usuario.rol !== 'superadmin' &&
-        req.usuario.rol !== 'admin_empresa') {
+    if (!candidato.perfil_publico && !esPropio && !esAdmin && !esEmpresa) {
       return errorRespuesta(res, 403, 'Este perfil es privado.');
     }
 
@@ -95,9 +160,90 @@ const obtenerCandidatoPorId = async (req, res) => {
   }
 };
 
+
 /**
- * Crear o actualizar perfil de candidato
+ * 🆕 Actualizar perfil de candidato
+ * PUT /api/candidatos/:id
  */
+const actualizarPerfil = async (req, res) => {
+  try {
+    console.log('🔍 DEBUG BACKEND - req.body:', req.body); // ✅ AGREGAR
+    console.log('🔍 DEBUG BACKEND - req.params.id:', req.params.id); // ✅ AGREGAR
+    const errores = validationResult(req);
+    if (!errores.isEmpty()) {
+      return errorRespuesta(res, 400, 'Errores de validación', errores.array());
+    }
+
+    const { id } = req.params;
+    const candidato = await Candidato.findByPk(id);
+
+    if (!candidato) {
+      return errorRespuesta(res, 404, 'Candidato no encontrado');
+    }
+
+    // Verificar que el usuario solo pueda editar su propio perfil (excepto ADMIN)
+    if (candidato.usuario_id !== req.usuario.id && req.usuario.rol !== 'ADMIN') {
+      return errorRespuesta(res, 403, 'No tienes permiso para editar este perfil');
+    }
+
+    // Actualizar campos permitidos
+    const camposPermitidos = [
+      'nombres',              // ✅ CORREGIDO
+      'apellido_paterno',     // ✅ CORREGIDO
+      'apellido_materno',     // ✅ AGREGADO
+      'ci',                   // ✅ AGREGADO
+      'telefono', 
+      'direccion', 
+      'fecha_nacimiento',
+      'profesion',            // ✅ AGREGADO
+      'nivel_educativo',      // ✅ AGREGADO
+      'estado_laboral',       // ✅ AGREGADO
+      'disponibilidad',       // ✅ AGREGADO
+      'modalidad_preferida',  // ✅ AGREGADO
+      'perfil_publico'
+    ];
+
+    const datosActualizar = {};
+    camposPermitidos.forEach(campo => {
+      if (req.body[campo] !== undefined) {
+        datosActualizar[campo] = req.body[campo];
+      }
+    });
+
+   console.log('🔍 DEBUG BACKEND - datosActualizar:', datosActualizar); // ✅ DEBE ESTAR AQUÍ
+    console.log('🔍 DEBUG BACKEND - Object.keys(datosActualizar):', Object.keys(datosActualizar)); // ✅ AGREGAR
+        if (Object.keys(datosActualizar).length === 0) {
+      console.log('⚠️ ADVERTENCIA: datosActualizar está vacío!');
+      return errorRespuesta(res, 400, 'No hay datos para actualizar');
+    }
+
+
+   await candidato.update(datosActualizar, {
+    fields: Object.keys(datosActualizar),  // Especificar qué campos actualizar
+    validate: true
+  });
+
+  console.log('✅ UPDATE ejecutado para campos:', Object.keys(datosActualizar)); // ✅ AGREGAR
+
+    // ✅ SOLUCIÓN: Recargar desde BD para obtener datos frescos
+    await candidato.reload({
+      include: [
+        {
+          model: Usuario,
+          as: 'usuario',
+          attributes: ['id', 'email', 'rol', 'activo']
+        }
+      ]
+    });
+
+    
+    return exitoRespuesta(res, 200, 'Perfil actualizado exitosamente', candidato);
+
+  } catch (error) {
+    console.error('❌ Error al actualizar perfil:', error);
+    return errorRespuesta(res, 500, 'Error al actualizar perfil', error.message);
+  }
+};
 const guardarPerfilCandidato = async (req, res) => {
   try {
     const errores = validationResult(req);
@@ -131,23 +277,23 @@ const guardarPerfilCandidato = async (req, res) => {
     return errorRespuesta(res, 500, 'Error al guardar perfil', error.message);
   }
 };
+
 /**
- * @desc    Obtener perfil completo del candidato (con todas las relaciones)
- * @route   GET /api/candidatos/:id/perfil-completo
- * @access  Private (CANDIDATO ve solo el suyo, ADMIN ve todos)
+ * Obtener perfil completo del candidato (con todas las relaciones)
+ * GET /api/candidatos/:id/perfil-completo
  */
-exports.obtenerPerfilCompleto = async (req, res) => {
+const obtenerPerfilCompleto = async (req, res) => {
   try {
     const { id } = req.params;
 
     // Verificar permisos
-    if (req.user.rol === 'CANDIDATO') {
-      const candidatoUsuario = await Candidato.findOne({ where: { usuario_id: req.user.id } });
+    if (req.usuario.rol === 'CANDIDATO') {
+      const candidatoUsuario = await Candidato.findOne({ where: { usuario_id: req.usuario.id } });
       if (!candidatoUsuario || candidatoUsuario.id !== parseInt(id)) {
-        return errorResponse(res, 'No tienes permisos para ver este perfil', 403);
+        return errorRespuesta(res, 403, 'No tienes permisos para ver este perfil');
       }
-    } else if (req.user.rol !== 'ADMIN' && req.user.rol !== 'EMPRESA') {
-      return errorResponse(res, 'No tienes permisos para ver perfiles de candidatos', 403);
+    } else if (req.usuario.rol !== 'ADMIN' && req.usuario.rol !== 'EMPRESA') {
+      return errorRespuesta(res, 403, 'No tienes permisos para ver perfiles de candidatos');
     }
 
     // Query optimizada con eager loading (evita N+1)
@@ -157,40 +303,43 @@ exports.obtenerPerfilCompleto = async (req, res) => {
           model: Educacion,
           as: 'educacion',
           attributes: { exclude: ['candidato_id'] },
-          order: [['fecha_inicio', 'DESC']]
+          required: false
         },
         {
           model: ExperienciaLaboral,
           as: 'experienciaLaboral',
           attributes: { exclude: ['candidato_id'] },
-          order: [['fecha_inicio', 'DESC']]
+          required: false
         },
         {
           model: Habilidad,
           as: 'habilidades',
-          attributes: { exclude: ['candidato_id'] }
+          attributes: { exclude: ['candidato_id'] },
+          required: false
         },
         {
           model: Certificacion,
           as: 'certificaciones',
           attributes: { exclude: ['candidato_id'] },
-          order: [['fecha_emision', 'DESC']]
+          required: false
         },
         {
           model: Idioma,
           as: 'idiomas',
-          attributes: { exclude: ['candidato_id'] }
+          attributes: { exclude: ['candidato_id'] },
+          required: false
         },
         {
           model: Referencia,
           as: 'referencias',
-          attributes: { exclude: ['candidato_id'] }
+          attributes: { exclude: ['candidato_id'] },
+          required: false
         },
         {
           model: Documento,
           as: 'documentos',
-          attributes: ['id', 'tipo_documento', 'nombre_archivo', 'tamano_bytes', 'hash_sha256', 'descripcion', 'created_at'],
-          order: [['created_at', 'DESC']]
+          attributes: ['id', 'tipo_documento', 'nombre_archivo', 'tamano_bytes', 'hash_sha256', 'descripcion', 'createdAt'],
+          required: false
         },
         {
           model: ContratoLaboral,
@@ -203,104 +352,89 @@ exports.obtenerPerfilCompleto = async (req, res) => {
               attributes: ['id', 'nombre_comercial', 'razon_social']
             }
           ],
-          order: [['fecha_inicio', 'DESC']]
+          required: false
         }
       ]
     });
 
     if (!perfil) {
-      return errorResponse(res, 'Candidato no encontrado', 404);
+      return errorRespuesta(res, 404, 'Candidato no encontrado');
     }
 
     // Calcular métricas adicionales
-    const totalExperienciaMeses = perfil.experienciaLaboral.reduce((total, exp) => {
+    const totalExperienciaMeses = perfil.experienciaLaboral ? perfil.experienciaLaboral.reduce((total, exp) => {
       const inicio = new Date(exp.fecha_inicio);
       const fin = exp.fecha_fin ? new Date(exp.fecha_fin) : new Date();
       const meses = (fin.getFullYear() - inicio.getFullYear()) * 12 + (fin.getMonth() - inicio.getMonth());
       return total + meses;
-    }, 0);
+    }, 0) : 0;
 
-    const certificacionesVigentes = perfil.certificaciones.filter(cert => {
+    const certificacionesVigentes = perfil.certificaciones ? perfil.certificaciones.filter(cert => {
       if (!cert.fecha_vencimiento) return true;
       return new Date(cert.fecha_vencimiento) >= new Date();
-    }).length;
+    }).length : 0;
 
-    const contratoActivo = perfil.contratos.find(c => c.estado === 'ACTIVO');
+    const contratoActivo = perfil.contratos ? perfil.contratos.find(c => c.estado === 'ACTIVO') : null;
 
-    return successResponse(
+    return exitoRespuesta(
       res,
+      200,
+      'Perfil completo obtenido exitosamente',
       {
         datos_personales: {
           id: perfil.id,
           nombre: perfil.nombre,
           apellido: perfil.apellido,
-          email: perfil.email,
           telefono: perfil.telefono,
           fecha_nacimiento: perfil.fecha_nacimiento,
-          genero: perfil.genero,
-          estado_civil: perfil.estado_civil,
-          nacionalidad: perfil.nacionalidad,
           direccion: perfil.direccion,
-          ciudad: perfil.ciudad,
-          departamento: perfil.departamento,
-          pais: perfil.pais,
-          codigo_postal: perfil.codigo_postal,
-          foto_perfil: perfil.foto_perfil,
-          linkedin_url: perfil.linkedin_url,
-          github_url: perfil.github_url,
-          portfolio_url: perfil.portfolio_url
+          resumen_profesional: perfil.resumen_profesional,
+          perfil_publico: perfil.perfil_publico
         },
         informacion_profesional: {
-          titulo_profesional: perfil.titulo_profesional,
+          profesion: perfil.profesion,
           nivel_educativo: perfil.nivel_educativo,
           anos_experiencia: Math.floor(totalExperienciaMeses / 12),
           meses_experiencia: totalExperienciaMeses % 12,
           total_experiencia_meses: totalExperienciaMeses,
-          area_especializacion: perfil.area_especializacion,
-          industria_preferida: perfil.industria_preferida,
+          estado_laboral: perfil.estado_laboral,
           disponibilidad: perfil.disponibilidad,
-          modalidad_trabajo: perfil.modalidad_trabajo,
-          salario_esperado_min: perfil.salario_esperado_min,
-          salario_esperado_max: perfil.salario_esperado_max,
-          moneda: perfil.moneda
+          modalidad_preferida: perfil.modalidad_preferida
         },
         estado: {
-          disponible_trabajar: perfil.disponible_trabajar,
-          busqueda_activa: perfil.busqueda_activa,
           contrato_activo: contratoActivo ? true : false,
-          empresa_actual: contratoActivo ? contratoActivo.empresa.nombre_comercial : null,
+          empresa_actual: contratoActivo ? contratoActivo.empresa?.nombre_comercial : null,
           cargo_actual: contratoActivo ? contratoActivo.cargo : null
         },
-        educacion: perfil.educacion,
-        experiencia_laboral: perfil.experienciaLaboral,
-        habilidades: perfil.habilidades,
+        educacion: perfil.educacion || [],
+        experiencia_laboral: perfil.experienciaLaboral || [],
+        habilidades: perfil.habilidades || [],
         certificaciones: {
-          total: perfil.certificaciones.length,
+          total: perfil.certificaciones ? perfil.certificaciones.length : 0,
           vigentes: certificacionesVigentes,
-          vencidas: perfil.certificaciones.length - certificacionesVigentes,
-          lista: perfil.certificaciones
+          vencidas: perfil.certificaciones ? perfil.certificaciones.length - certificacionesVigentes : 0,
+          lista: perfil.certificaciones || []
         },
-        idiomas: perfil.idiomas,
-        referencias: perfil.referencias,
-        documentos: perfil.documentos,
-        contratos: perfil.contratos,
+        idiomas: perfil.idiomas || [],
+        referencias: perfil.referencias || [],
+        documentos: perfil.documentos || [],
+        contratos: perfil.contratos || [],
         metricas: {
-          total_educacion: perfil.educacion.length,
-          total_experiencia: perfil.experienciaLaboral.length,
-          total_habilidades: perfil.habilidades.length,
-          total_certificaciones: perfil.certificaciones.length,
-          total_idiomas: perfil.idiomas.length,
-          total_referencias: perfil.referencias.length,
-          total_documentos: perfil.documentos.length,
-          total_contratos: perfil.contratos.length,
+          total_educacion: perfil.educacion ? perfil.educacion.length : 0,
+          total_experiencia: perfil.experienciaLaboral ? perfil.experienciaLaboral.length : 0,
+          total_habilidades: perfil.habilidades ? perfil.habilidades.length : 0,
+          total_certificaciones: perfil.certificaciones ? perfil.certificaciones.length : 0,
+          total_idiomas: perfil.idiomas ? perfil.idiomas.length : 0,
+          total_referencias: perfil.referencias ? perfil.referencias.length : 0,
+          total_documentos: perfil.documentos ? perfil.documentos.length : 0,
+          total_contratos: perfil.contratos ? perfil.contratos.length : 0,
           completitud_perfil: calcularCompletitudPerfil(perfil)
         }
-      },
-      'Perfil completo obtenido exitosamente'
+      }
     );
   } catch (error) {
-    console.error('Error en obtenerPerfilCompleto:', error);
-    return errorResponse(res, 'Error al obtener perfil completo', 500);
+    console.error('❌ Error en obtenerPerfilCompleto:', error);
+    return errorRespuesta(res, 500, 'Error al obtener perfil completo');
   }
 };
 
@@ -312,15 +446,15 @@ function calcularCompletitudPerfil(perfil) {
   const maxPuntos = 15;
 
   // Datos personales básicos (5 puntos)
-  if (perfil.nombre && perfil.apellido && perfil.email) puntos += 1;
+  if (perfil.nombre && perfil.apellido) puntos += 1;
   if (perfil.telefono) puntos += 1;
-  if (perfil.direccion && perfil.ciudad) puntos += 1;
+  if (perfil.direccion) puntos += 1;
   if (perfil.fecha_nacimiento) puntos += 1;
-  if (perfil.foto_perfil) puntos += 1;
+  if (perfil.resumen_profesional) puntos += 1;
 
   // Información profesional (3 puntos)
-  if (perfil.titulo_profesional) puntos += 1;
-  if (perfil.area_especializacion) puntos += 1;
+  if (perfil.profesion) puntos += 1;
+  if (perfil.nivel_educativo) puntos += 1;
   if (perfil.disponibilidad) puntos += 1;
 
   // Secciones completadas (7 puntos)
@@ -334,8 +468,12 @@ function calcularCompletitudPerfil(perfil) {
 
   return Math.round((puntos / maxPuntos) * 100);
 }
+
 module.exports = {
+  obtenerMiPerfil,           // 🆕 NUEVO
   obtenerCandidatos,
   obtenerCandidatoPorId,
-  guardarPerfilCandidato
+  actualizarPerfil,          // 🆕 NUEVO
+  guardarPerfilCandidato,    // ♻️ Legacy (mantener compatibilidad)
+  obtenerPerfilCompleto
 };

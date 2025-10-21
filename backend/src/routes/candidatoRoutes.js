@@ -3,11 +3,49 @@ const express = require('express');
 const router = express.Router();
 const { body, param } = require('express-validator');
 const {
+  obtenerMiPerfil,           // 🆕 NUEVO
   obtenerCandidatos,
   obtenerCandidatoPorId,
-  guardarPerfilCandidato
+  actualizarPerfil,          // 🆕 NUEVO
+  guardarPerfilCandidato,
+  obtenerPerfilCompleto
 } = require('../controllers/candidatoController');
 const { verificarToken, verificarRoles } = require('../middlewares/auth');
+
+// ============================================
+// 🆕 RUTAS NUEVAS S007.3.1
+// ============================================
+
+/**
+ * GET /api/candidatos/me
+ * Obtener perfil del candidato actual (usuario logueado)
+ * Rol: CANDIDATO, ADMIN
+ */
+router.get('/me', 
+  verificarToken,
+  obtenerMiPerfil
+);
+
+/**
+ * PUT /api/candidatos/:id
+ * Actualizar perfil de candidato
+ * Rol: CANDIDATO (solo su propio perfil), ADMIN
+ */
+router.put('/:id', [
+  verificarToken,
+  param('id').isInt().withMessage('ID debe ser un número entero'),
+  body('nombre').optional().isLength({ min: 2, max: 50 }).trim(),
+  body('apellido').optional().isLength({ min: 2, max: 50 }).trim(),
+  body('telefono').optional().matches(/^[\d\s\-+()]+$/),
+  body('direccion').optional().isLength({ max: 200 }).trim(),
+  body('fecha_nacimiento').optional().isISO8601(),
+  body('resumen_profesional').optional().isLength({ max: 1000 }).trim(),
+  body('perfil_publico').optional().isBoolean(),
+], actualizarPerfil);
+
+// ============================================
+// RUTAS EXISTENTES (mantener compatibilidad)
+// ============================================
 
 /**
  * GET /api/candidatos
@@ -25,16 +63,25 @@ router.get('/:id', [
 ], obtenerCandidatoPorId);
 
 /**
- * POST/PUT /api/candidatos/perfil
- * Crear o actualizar perfil de candidato
+ * GET /api/candidatos/:id/perfil-completo
+ * Obtener perfil completo con todas las relaciones
+ */
+router.get('/:id/perfil-completo', [
+  verificarToken,
+  param('id').isInt().withMessage('ID debe ser un número entero')
+], obtenerPerfilCompleto);
+
+/**
+ * POST /api/candidatos/perfil
+ * Crear o actualizar perfil de candidato (LEGACY - mantener compatibilidad)
  */
 router.post('/perfil', [
   verificarToken,
   body('nombres')
-    .notEmpty().withMessage('Los nombres son requeridos')
+    .optional()
     .isLength({ max: 100 }),
   body('apellido_paterno')
-    .notEmpty().withMessage('El apellido paterno es requerido')
+    .optional()
     .isLength({ max: 100 }),
   body('ci')
     .optional()
@@ -59,4 +106,4 @@ router.post('/perfil', [
     .isIn(['Presencial', 'Remoto', 'Híbrido', 'Indiferente'])
 ], guardarPerfilCandidato);
 
-module.exports = router;//.
+module.exports = router;

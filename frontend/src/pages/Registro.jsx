@@ -4,7 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { registroSchema } from '../utils/validators';
-import useAuth from '../hooks/useAuth'; // ✅ Actualizar import
+import { useAuth } from '../hooks/useAuth'; // ✅ Actualizar import
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import { UserIcon, BuildingOfficeIcon } from '@heroicons/react/24/outline';
