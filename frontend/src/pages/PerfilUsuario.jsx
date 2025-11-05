@@ -246,88 +246,85 @@ const PerfilUsuario = () => {
               {...register('profesion')}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nivel Educativo
-                </label>
-                <select
-                  className="mt-1 block w-full px-4 py-2.5 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-gray-300"
-                  {...register('nivel_educativo')}
-                >
-                  <option value="">Seleccionar...</option>
-                  <option value="Secundaria">Secundaria</option>
-                  <option value="Técnico">Técnico</option>
-                  <option value="Universitario">Universitario</option>
-                  <option value="Postgrado">Postgrado</option>
-                  <option value="Maestría">Maestría</option>
-                  <option value="Doctorado">Doctorado</option>
-                </select>
-                {errors.nivel_educativo && (
-                  <p className="mt-1.5 text-sm text-red-600">{errors.nivel_educativo.message}</p>
-                )}
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Estado Laboral
-                </label>
-                <select
-                  className="mt-1 block w-full px-4 py-2.5 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-gray-300"
-                  {...register('estado_laboral')}
-                >
-                  <option value="">Seleccionar...</option>
-                  <option value="Empleado">Empleado</option>
-                  <option value="Desempleado">Desempleado</option>
-                  <option value="Buscando">Buscando</option>
-                  <option value="Freelance">Freelance</option>
-                  <option value="Estudiante">Estudiante</option>
-                </select>
-                {errors.estado_laboral && (
-                  <p className="mt-1.5 text-sm text-red-600">{errors.estado_laboral.message}</p>
-                )}
-              </div>
+            {/* ========== NIVEL EDUCATIVO ========== */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nivel Educativo
+              </label>
+              <select
+                className="mt-1 block w-full px-4 py-2.5 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-gray-300"
+                {...register('nivel_educativo')}
+              >
+                <option value="">Seleccionar...</option>
+                <option value="Secundaria">Secundaria</option>
+                <option value="Técnico">Técnico</option>
+                <option value="Licenciatura">Licenciatura/Universitario</option>
+                <option value="Maestría">Maestría</option>
+                <option value="Doctorado">Doctorado</option>
+              </select>
+              {errors.nivel_educativo && (
+                <p className="mt-1.5 text-sm text-red-600">{errors.nivel_educativo.message}</p>
+              )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Disponibilidad
-                </label>
-                <select
-                  className="mt-1 block w-full px-4 py-2.5 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-gray-300"
-                  {...register('disponibilidad')}
-                >
-                  <option value="">Seleccionar...</option>
-                  <option value="Inmediata">Inmediata</option>
-                  <option value="15 días">15 días</option>
-                  <option value="1 mes">1 mes</option>
-                  <option value="2 meses">2 meses</option>
-                  <option value="No disponible">No disponible</option>
-                </select>
-                {errors.disponibilidad && (
-                  <p className="mt-1.5 text-sm text-red-600">{errors.disponibilidad.message}</p>
-                )}
-              </div>
+            {/* ========== ESTADO LABORAL ========== */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Estado Laboral
+              </label>
+              <select
+                className="mt-1 block w-full px-4 py-2.5 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-gray-300"
+                {...register('estado_laboral')}
+              >
+                <option value="">Seleccionar...</option>
+                <option value="Empleado">Empleado</option>
+                <option value="Desempleado">Desempleado</option>
+                <option value="Busqueda_activa">Búsqueda Activa</option>
+                <option value="Busqueda_pasiva">Búsqueda Pasiva</option>
+              </select>
+              {errors.estado_laboral && (
+                <p className="mt-1.5 text-sm text-red-600">{errors.estado_laboral.message}</p>
+              )}
+            </div>
 
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Modalidad Preferida
-                </label>
-                <select
-                  className="mt-1 block w-full px-4 py-2.5 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-gray-300"
-                  {...register('modalidad_preferida')}
-                >
-                  <option value="">Seleccionar...</option>
-                  <option value="Presencial">Presencial</option>
-                  <option value="Remoto">Remoto</option>
-                  <option value="Híbrido">Híbrido</option>
-                  <option value="Indiferente">Indiferente</option>
-                </select>
-                {errors.modalidad_preferida && (
-                  <p className="mt-1.5 text-sm text-red-600">{errors.modalidad_preferida.message}</p>
-                )}
-              </div>
+            {/* ========== DISPONIBILIDAD ========== */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Disponibilidad
+              </label>
+              <select
+                className="mt-1 block w-full px-4 py-2.5 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-gray-300"
+                {...register('disponibilidad')}
+              >
+                <option value="">Seleccionar...</option>
+                <option value="inmediata">Inmediata</option>
+                <option value="2_semanas">2 semanas</option>
+                <option value="1_mes">1 mes</option>
+                <option value="mas_1_mes">Más de 1 mes</option>
+              </select>
+              {errors.disponibilidad && (
+                <p className="mt-1.5 text-sm text-red-600">{errors.disponibilidad.message}</p>
+              )}
+            </div>
+
+            {/* ========== MODALIDAD PREFERIDA ========== */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Modalidad Preferida
+              </label>
+              <select
+                className="mt-1 block w-full px-4 py-2.5 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-gray-300"
+                {...register('modalidad_preferida')}
+              >
+                <option value="">Seleccionar...</option>
+                <option value="Presencial">Presencial</option>
+                <option value="Remoto">Remoto</option>
+                <option value="Híbrido">Híbrido</option>
+                <option value="Indiferente">Indiferente</option>
+              </select>
+              {errors.modalidad_preferida && (
+                <p className="mt-1.5 text-sm text-red-600">{errors.modalidad_preferida.message}</p>
+              )}
             </div>
           </div>
 

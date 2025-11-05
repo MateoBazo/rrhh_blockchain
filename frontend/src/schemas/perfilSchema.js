@@ -69,11 +69,6 @@ export const perfilCandidatoSchema = z.object({
     .optional()
     .or(z.literal('')),
 
-  disponibilidad: z
-    .enum(['Inmediata', '15 días', '1 mes', '2 meses', 'No disponible'])
-    .optional()
-    .or(z.literal('')),
-
   profesion: z
     .string()
     .min(2, 'La profesión debe tener al menos 2 caracteres')
@@ -86,8 +81,7 @@ export const perfilCandidatoSchema = z.object({
     .enum([
       'Secundaria',
       'Técnico',
-      'Universitario',
-      'Postgrado',
+      'Licenciatura',
       'Maestría',
       'Doctorado'
     ])
@@ -95,12 +89,32 @@ export const perfilCandidatoSchema = z.object({
     .or(z.literal('')),
 
   estado_laboral: z
-    .enum(['Empleado', 'Desempleado', 'Buscando','Freelance', 'Estudiante'])
+    .enum([
+      'Empleado',
+      'Desempleado',
+      'Busqueda_activa',
+      'Busqueda_pasiva'
+    ])
+    .optional()
+    .or(z.literal('')),
+
+  disponibilidad: z
+    .enum([
+      'inmediata',
+      '2_semanas',
+      '1_mes',
+      'mas_1_mes'
+    ])
     .optional()
     .or(z.literal('')),
 
   modalidad_preferida: z
-    .enum(['Presencial', 'Remoto', 'Híbrido', 'Indiferente'])
+    .enum([
+      'Presencial',
+      'Remoto',
+      'Híbrido',
+      'Indiferente'
+    ])
     .optional()
     .or(z.literal('')),
 });
