@@ -26,9 +26,9 @@ const obtenerMiPerfil = async (req, res) => {
       // Si no existe, crear uno con los campos mínimos requeridos
       candidato = await Candidato.create({
         usuario_id: req.usuario.id,
-        nombres: 'Sin completar',              // ✅ CORREGIDO: nombres (NOT NULL)
-        apellido_paterno: 'Sin completar',    // ✅ CORREGIDO: apellido_paterno (NOT NULL)
-        apellido_materno: '',                  // ✅ Opcional
+        nombres: 'Sin completar',
+        apellido_paterno: 'Sin completar',
+        apellido_materno: '',
         ci: null,
         telefono: null,
         profesion: null,
@@ -52,11 +52,14 @@ const obtenerMiPerfil = async (req, res) => {
 
       return exitoRespuesta(res, 201, 'Perfil creado automáticamente', candidato);
     }
+
+    // Headers no-cache para evitar 304 Not Modified
     res.set({
       'Cache-Control': 'no-store, no-cache, must-revalidate, private',
       'Pragma': 'no-cache',
       'Expires': '0'
     });
+
     return exitoRespuesta(res, 200, 'Perfil obtenido', candidato);
 
   } catch (error) {
@@ -64,6 +67,7 @@ const obtenerMiPerfil = async (req, res) => {
     return errorRespuesta(res, 500, 'Error al obtener perfil', error.message);
   }
 };
+
 /**
  * Obtener todos los candidatos (con paginación y filtros)
  * GET /api/candidatos
@@ -133,7 +137,7 @@ const obtenerCandidatoPorId = async (req, res) => {
         {
           model: Usuario,
           as: 'usuario',
-          attributes: ['id', 'email', 'rol', 'activo'] // ✅ SIN nombre/apellido
+          attributes: ['id', 'email', 'rol', 'activo']
         }
       ]
     });
@@ -160,15 +164,12 @@ const obtenerCandidatoPorId = async (req, res) => {
   }
 };
 
-
 /**
  * 🆕 Actualizar perfil de candidato
  * PUT /api/candidatos/:id
  */
 const actualizarPerfil = async (req, res) => {
   try {
-    console.log('🔍 DEBUG BACKEND - req.body:', req.body); // ✅ AGREGAR
-    console.log('🔍 DEBUG BACKEND - req.params.id:', req.params.id); // ✅ AGREGAR
     const errores = validationResult(req);
     if (!errores.isEmpty()) {
       return errorRespuesta(res, 400, 'Errores de validación', errores.array());
@@ -188,18 +189,18 @@ const actualizarPerfil = async (req, res) => {
 
     // Actualizar campos permitidos
     const camposPermitidos = [
-      'nombres',              // ✅ CORREGIDO
-      'apellido_paterno',     // ✅ CORREGIDO
-      'apellido_materno',     // ✅ AGREGADO
-      'ci',                   // ✅ AGREGADO
+      'nombres',
+      'apellido_paterno',
+      'apellido_materno',
+      'ci',
       'telefono', 
       'direccion', 
       'fecha_nacimiento',
-      'profesion',            // ✅ AGREGADO
-      'nivel_educativo',      // ✅ AGREGADO
-      'estado_laboral',       // ✅ AGREGADO
-      'disponibilidad',       // ✅ AGREGADO
-      'modalidad_preferida',  // ✅ AGREGADO
+      'profesion',
+      'nivel_educativo',
+      'estado_laboral',
+      'disponibilidad',
+      'modalidad_preferida',
       'perfil_publico'
     ];
 
@@ -210,22 +211,16 @@ const actualizarPerfil = async (req, res) => {
       }
     });
 
-   console.log('🔍 DEBUG BACKEND - datosActualizar:', datosActualizar); // ✅ DEBE ESTAR AQUÍ
-    console.log('🔍 DEBUG BACKEND - Object.keys(datosActualizar):', Object.keys(datosActualizar)); // ✅ AGREGAR
-        if (Object.keys(datosActualizar).length === 0) {
-      console.log('⚠️ ADVERTENCIA: datosActualizar está vacío!');
+    if (Object.keys(datosActualizar).length === 0) {
       return errorRespuesta(res, 400, 'No hay datos para actualizar');
     }
 
+    await candidato.update(datosActualizar, {
+      fields: Object.keys(datosActualizar),
+      validate: true
+    });
 
-   await candidato.update(datosActualizar, {
-    fields: Object.keys(datosActualizar),  // Especificar qué campos actualizar
-    validate: true
-  });
-
-  console.log('✅ UPDATE ejecutado para campos:', Object.keys(datosActualizar)); // ✅ AGREGAR
-
-    // ✅ SOLUCIÓN: Recargar desde BD para obtener datos frescos
+    // Recargar desde BD para obtener datos frescos
     await candidato.reload({
       include: [
         {
@@ -236,6 +231,12 @@ const actualizarPerfil = async (req, res) => {
       ]
     });
 
+    // Headers no-cache
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
     
     return exitoRespuesta(res, 200, 'Perfil actualizado exitosamente', candidato);
 
@@ -244,6 +245,11 @@ const actualizarPerfil = async (req, res) => {
     return errorRespuesta(res, 500, 'Error al actualizar perfil', error.message);
   }
 };
+
+/**
+ * Guardar perfil candidato (crear o actualizar)
+ * POST /api/candidatos/perfil
+ */
 const guardarPerfilCandidato = async (req, res) => {
   try {
     const errores = validationResult(req);
@@ -296,7 +302,7 @@ const obtenerPerfilCompleto = async (req, res) => {
       return errorRespuesta(res, 403, 'No tienes permisos para ver perfiles de candidatos');
     }
 
-    // Query optimizada con eager loading (evita N+1)
+    // Query optimizada con eager loading
     const perfil = await Candidato.findByPk(id, {
       include: [
         {
@@ -383,12 +389,14 @@ const obtenerPerfilCompleto = async (req, res) => {
       {
         datos_personales: {
           id: perfil.id,
-          nombre: perfil.nombre,
-          apellido: perfil.apellido,
+          nombres: perfil.nombres,
+          apellido_paterno: perfil.apellido_paterno,
+          apellido_materno: perfil.apellido_materno,
+          ci: perfil.ci,
           telefono: perfil.telefono,
           fecha_nacimiento: perfil.fecha_nacimiento,
           direccion: perfil.direccion,
-          resumen_profesional: perfil.resumen_profesional,
+          foto_perfil_url: perfil.foto_perfil_url,
           perfil_publico: perfil.perfil_publico
         },
         informacion_profesional: {
@@ -446,11 +454,11 @@ function calcularCompletitudPerfil(perfil) {
   const maxPuntos = 15;
 
   // Datos personales básicos (5 puntos)
-  if (perfil.nombre && perfil.apellido) puntos += 1;
+  if (perfil.nombres && perfil.apellido_paterno) puntos += 1;
   if (perfil.telefono) puntos += 1;
   if (perfil.direccion) puntos += 1;
   if (perfil.fecha_nacimiento) puntos += 1;
-  if (perfil.resumen_profesional) puntos += 1;
+  if (perfil.foto_perfil_url) puntos += 1;
 
   // Información profesional (3 puntos)
   if (perfil.profesion) puntos += 1;
@@ -470,10 +478,10 @@ function calcularCompletitudPerfil(perfil) {
 }
 
 module.exports = {
-  obtenerMiPerfil,           // 🆕 NUEVO
+  obtenerMiPerfil,
   obtenerCandidatos,
   obtenerCandidatoPorId,
-  actualizarPerfil,          // 🆕 NUEVO
-  guardarPerfilCandidato,    // ♻️ Legacy (mantener compatibilidad)
+  actualizarPerfil,
+  guardarPerfilCandidato,
   obtenerPerfilCompleto
 };

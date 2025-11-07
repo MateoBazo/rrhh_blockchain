@@ -1,6 +1,6 @@
-// file: backend/server.js
-const app = require('./src/app');
-const { sequelize, testConnection } = require('./src/config/database');
+// file: backend/src/server.js
+const app = require('./app');
+const { sequelize, testConnection } = require('./config/database');
 
 const PORT = process.env.PORT || 5000;
 
@@ -13,10 +13,9 @@ const iniciarServidor = async () => {
     await testConnection();
 
     // 2. Sincronizar modelos con DB 
-  
     if (process.env.NODE_ENV === 'development') {
       console.log('⚙️  Sincronizando modelos con base de datos...');
-      await sequelize.sync({ alter: false }); // Cambia a true si quieres auto-migrar
+      await sequelize.sync({ alter: false });
       console.log('✅ Modelos sincronizados');
     }
 
@@ -26,9 +25,10 @@ const iniciarServidor = async () => {
 ╔════════════════════════════════════════════╗
 ║   🚀 Servidor Backend Iniciado             ║
 ║   📡 Puerto: ${PORT}                        ║
-║   🌍 Entorno: ${process.env.NODE_ENV}       ║
+║   🌍 Entorno: ${process.env.NODE_ENV || 'development'}       ║
 ║   📊 Base de datos: MySQL                  ║
 ║   🔗 URL: http://localhost:${PORT}         ║
+║   📁 Uploads: /uploads (estático)          ║
 ╚════════════════════════════════════════════╝
       `);
     });
