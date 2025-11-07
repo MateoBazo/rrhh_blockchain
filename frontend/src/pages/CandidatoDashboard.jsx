@@ -1,37 +1,39 @@
 // file: frontend/src/pages/CandidatoDashboard.jsx
-import { Link } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
 import { useState, useEffect } from 'react';
-import { candidatosAPI } from '../api/candidatos'; // ✅ CORREGIDO
+import { useAuth } from '../hooks/useAuth'; // ✅ CORRECTO: desde hooks
+import { useNavigate, Link } from 'react-router-dom';
+import Avatar from '../components/common/Avatar'; // 🆕 IMPORT
+import { candidatosAPI } from '../api/candidatos';
 import Button from '../components/common/Button';
 
 const CandidatoDashboard = () => {
-  const { user, logout } = useAuth();
+  const { user, logout } = useAuth(); // ✅ CORRECTO
+  const navigate = useNavigate();
   const [candidato, setCandidato] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // 🆕 CARGAR DATOS CANDIDATO AL MONTAR
   useEffect(() => {
-    cargarPerfil();
+    const cargarCandidato = async () => {
+      try {
+        const response = await candidatosAPI.obtenerPerfil();
+        if (response.data.success) {
+          setCandidato(response.data.data);
+        }
+      } catch (error) {
+        console.error('Error al cargar candidato:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    cargarCandidato();
   }, []);
 
-  const cargarPerfil = async () => {
-    try {
-      const response = await candidatosAPI.obtenerPerfil(); // ✅ CORREGIDO
-      if (response.data.success) {
-        setCandidato(response.data.data);
-      }
-    } catch (error) {
-      console.error('Error al cargar perfil:', error);
-    } finally {
-      setLoading(false);
-    }
+  const handleLogout = () => {
+    logout();
+    navigate('/');
   };
-
-  const nombreCompleto = candidato?.nombre && candidato?.apellido 
-    ? `${candidato.nombre} ${candidato.apellido}`
-    : user?.email || 'Usuario';
-
-  const nombreBienvenida = candidato?.nombre || 'Candidato';
 
   if (loading) {
     return (
@@ -46,116 +48,176 @@ const CandidatoDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navbar */}
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-blue-600">HR Blockchain</h1>
-              <p className="text-xs text-gray-500">Panel de Candidato</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-700">
-                👤 {nombreCompleto}
-              </span>
-              <Button variant="outline" onClick={logout} size="sm">
-                Cerrar Sesión
-              </Button>
-            </div>
+      
+      {/* 🆕 NAVBAR CON AVATAR */}
+      <nav className="bg-white shadow-md">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+          
+          {/* Logo / Título */}
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold text-gray-900">
+              Sistema RRHH Blockchain
+            </h1>
+          </div>
+
+          {/* User Info + Avatar */}
+          <div className="flex items-center gap-4">
+            
+            {/* Nombre usuario - Desktop */}
+            {candidato && (
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-medium text-gray-900">
+                  {candidato.nombres} {candidato.apellido_paterno}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {user?.email}
+                </p>
+              </div>
+            )}
+
+          {/* Avatar clickable */}
+          {candidato && (
+            <Avatar
+              fotoUrl={candidato.foto_perfil_url 
+                ? `${import.meta.env.VITE_API_URL}${candidato.foto_perfil_url}?t=${Date.now()}` 
+                : null
+              }
+              nombres={candidato.nombres || ''}
+              apellidoPaterno={candidato.apellido_paterno || ''}
+              size="md"
+              clickable={true}
+            />
+          )}
+
+            {/* Botón logout */}
+            <Button
+              variant="outline"
+              onClick={handleLogout}
+              size="sm"
+            >
+              Cerrar Sesión
+            </Button>
           </div>
         </div>
       </nav>
 
-      {/* Contenido Principal */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Bienvenida */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">
-            ¡Bienvenido, {nombreBienvenida}! 👋
+      {/* CONTENIDO DASHBOARD */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        
+        {/* Header */}
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">
+            ¡Bienvenido/a, {candidato?.nombres || 'Candidato'}! 👋
           </h2>
-          <p className="mt-2 text-gray-600">
-            Completa tu perfil para comenzar a recibir ofertas de trabajo
+          <p className="text-gray-600">
+            Este es tu panel de control. Aquí podrás gestionar tu perfil, documentos y postulaciones.
           </p>
         </div>
 
-        {/* Acciones Rápidas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-          {/* Completar Perfil */}
+        {/* Cards de acciones rápidas */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          
+          {/* Card: Editar Perfil */}
           <Link to="/perfil">
-            <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition cursor-pointer border-l-4 border-blue-500">
-              <div className="flex items-center justify-between mb-4">
+            <div className="bg-white rounded-lg shadow-md p-6 cursor-pointer 
+                         hover:shadow-lg transition-shadow duration-200 border-2 border-transparent
+                         hover:border-blue-500">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="bg-blue-100 p-3 rounded-full">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
                 <h3 className="text-lg font-semibold text-gray-900">
-                  📝 Completar Perfil
+                  Mi Perfil
                 </h3>
-                <span className="text-2xl">→</span>
               </div>
-              <p className="text-sm text-gray-600">
-                Actualiza tus datos personales, experiencia y habilidades
+              <p className="text-gray-600 text-sm mb-4">
+                Completa y actualiza tu información personal, académica y profesional
               </p>
+              <div className="flex items-center text-blue-600 text-sm font-medium">
+                Editar perfil
+                <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
             </div>
           </Link>
 
-          {/* Subir CV */}
-          <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition cursor-pointer border-l-4 border-green-500 opacity-50">
-            <div className="flex items-center justify-between mb-4">
+          {/* Card: Subir CV (próximamente) */}
+          <div className="bg-white rounded-lg shadow-md p-6 opacity-60 cursor-not-allowed">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="bg-gray-100 p-3 rounded-full">
+                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
               <h3 className="text-lg font-semibold text-gray-900">
-                📄 Subir CV
+                Mis Documentos
               </h3>
-              <span className="text-sm text-gray-500">(Próximamente)</span>
             </div>
-            <p className="text-sm text-gray-600">
-              Carga tu currículum actualizado (PDF)
+            <p className="text-gray-600 text-sm mb-4">
+              Sube y gestiona tus certificados, títulos y documentación
             </p>
+            <div className="flex items-center text-gray-400 text-sm font-medium">
+              Próximamente
+            </div>
           </div>
 
-          {/* Ver Ofertas */}
-          <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition cursor-pointer border-l-4 border-purple-500 opacity-50">
-            <div className="flex items-center justify-between mb-4">
+          {/* Card: Postulaciones (próximamente) */}
+          <div className="bg-white rounded-lg shadow-md p-6 opacity-60 cursor-not-allowed">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="bg-gray-100 p-3 rounded-full">
+                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                        d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
               <h3 className="text-lg font-semibold text-gray-900">
-                💼 Ver Ofertas
+                Mis Postulaciones
               </h3>
-              <span className="text-sm text-gray-500">(Próximamente)</span>
             </div>
-            <p className="text-sm text-gray-600">
-              Explora las ofertas de trabajo disponibles
+            <p className="text-gray-600 text-sm mb-4">
+              Revisa el estado de tus postulaciones y ofertas de empleo
             </p>
+            <div className="flex items-center text-gray-400 text-sm font-medium">
+              Próximamente
+            </div>
+          </div>
+
+        </div>
+
+        {/* Estadísticas rápidas */}
+        <div className="mt-8 bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            📊 Resumen Rápido
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center">
+              <p className="text-3xl font-bold text-blue-600">
+                {candidato?.foto_perfil_url ? '✅' : '❌'}
+              </p>
+              <p className="text-sm text-gray-600 mt-1">Foto de Perfil</p>
+            </div>
+            <div className="text-center">
+              <p className="text-3xl font-bold text-blue-600">
+                {candidato?.completitud_perfil || 0}%
+              </p>
+              <p className="text-sm text-gray-600 mt-1">Perfil Completo</p>
+            </div>
+            <div className="text-center">
+              <p className="text-3xl font-bold text-blue-600">0</p>
+              <p className="text-sm text-gray-600 mt-1">Documentos</p>
+            </div>
+            <div className="text-center">
+              <p className="text-3xl font-bold text-blue-600">0</p>
+              <p className="text-sm text-gray-600 mt-1">Postulaciones</p>
+            </div>
           </div>
         </div>
 
-        {/* Estadísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Perfil Completado</p>
-                <p className="text-3xl font-bold text-blue-600">
-                  {candidato?.completitud_perfil || 0}%
-                </p>
-              </div>
-              <div className="text-4xl">📊</div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Postulaciones</p>
-                <p className="text-3xl font-bold text-green-600">0</p>
-              </div>
-              <div className="text-4xl">📨</div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Entrevistas</p>
-                <p className="text-3xl font-bold text-purple-600">0</p>
-              </div>
-              <div className="text-4xl">🎯</div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

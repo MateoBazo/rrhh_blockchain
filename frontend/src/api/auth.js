@@ -1,22 +1,26 @@
-// file: src/api/auth.js
-import axios from './axios';
+// file: frontend/src/api/auth.js
+import axiosInstance from './axios'; // ✅ CAMBIO: axios → axiosInstance
 
 export const authAPI = {
   // Login
   login: async (email, password) => {
-    const response = await axios.post('/auth/login', { email, password });
+    console.log('🔍 [authAPI] Llamando a /auth/login'); // 🆕 DEBUG
+    const response = await axiosInstance.post('/auth/login', { email, password });
+    console.log('✅ [authAPI] Respuesta login:', response.data); // 🆕 DEBUG
     return response.data;
   },
 
   // Registro
   register: async (userData) => {
-    const response = await axios.post('/auth/registrar', userData);
+    console.log('🔍 [authAPI] Llamando a /auth/registrar'); // 🆕 DEBUG
+    const response = await axiosInstance.post('/auth/registrar', userData);
+    console.log('✅ [authAPI] Respuesta registro:', response.data); // 🆕 DEBUG
     return response.data;
   },
 
   // Obtener perfil actual
   getProfile: async () => {
-    const response = await axios.get('/auth/perfil');
+    const response = await axiosInstance.get('/auth/perfil');
     return response.data;
   },
 

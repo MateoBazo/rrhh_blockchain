@@ -9,17 +9,15 @@ import { candidatosAPI } from '../api/candidatos';
 import FormField from '../components/common/FormField';
 import Button from '../components/common/Button';
 import Loader from '../components/common/Loader';
+import UploadFoto from '../components/upload/uploadFoto'; // 🆕 IMPORT
 import { perfilCandidatoSchema } from '../schemas/perfilSchema';
 
-/**
- * Página para editar el perfil del candidato
- * Carga datos existentes y permite actualizarlos
- */
 const PerfilUsuario = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [candidatoData, setCandidatoData] = useState(null);
+  const [fotoActual, setFotoActual] = useState(null); // 🆕 ESTADO FOTO
 
   const {
     register,
@@ -45,8 +43,6 @@ const PerfilUsuario = () => {
     },
   });
 
-
-
   // Cargar datos del candidato al montar componente
   const cargarDatosCandidato = useCallback(async () => {
     try {
@@ -56,9 +52,13 @@ const PerfilUsuario = () => {
 
       if (response.data.success) {
         const datos = response.data.data;
-        console.log('🔍 DEBUG - datos completos:', datos);
 
         setCandidatoData(datos);
+
+        // 🆕 Setear foto si existe
+        if (datos.foto_perfil_url) {
+          setFotoActual(`${import.meta.env.VITE_API_URL}${datos.foto_perfil_url}?t=${Date.now()}`);
+        }
 
         // Mapear con nombres correctos de la BD
         setValue('nombres', datos.nombres || '');
@@ -92,18 +92,11 @@ const PerfilUsuario = () => {
   }, [cargarDatosCandidato]);
 
   const onSubmit = async (data) => {
-    console.log('🔍 DEBUG FRONTEND - data ORIGINAL:', data);
-
     try {
       setSaving(true);
       const datosLimpios = { ...data };
 
-      console.log('🔍 DEBUG FRONTEND - datosLimpios:', datosLimpios);
-      console.log('🔍 DEBUG FRONTEND - candidatoData.id:', candidatoData?.id);
-
       const response = await candidatosAPI.actualizarPerfil(candidatoData.id, datosLimpios);
-
-      console.log('🔍 DEBUG FRONTEND - response:', response);
 
       if (response.data.success) {
         toast.success('✅ Perfil actualizado correctamente');
@@ -118,6 +111,15 @@ const PerfilUsuario = () => {
       toast.error(error.response?.data?.message || 'Error al actualizar el perfil');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // 🆕 HANDLER: FOTO ACTUALIZADA
+  const handleFotoActualizada = (nuevaFotoUrl) => {
+    if (nuevaFotoUrl) {
+      setFotoActual(`${import.meta.env.VITE_API_URL}${nuevaFotoUrl}?t=${Date.now()}`);
+    } else {
+      setFotoActual(null);
     }
   };
 
@@ -140,7 +142,7 @@ const PerfilUsuario = () => {
           </p>
         </div>
 
-        {/* 🔧 Corrección: Mostrar errores sin romper el render */}
+        {/* Errores de validación */}
         {Object.keys(errors).length > 0 && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded">
             <h3 className="font-bold text-red-800">Errores de validación:</h3>
@@ -151,15 +153,23 @@ const PerfilUsuario = () => {
                 </li>
               ))}
             </ul>
-            {/* Si quieres seguir viendo el objeto completo sin romper: */}
-            {/* <pre className="text-xs text-red-600 mt-2 overflow-auto">
-              {JSON.stringify(errors, getCircularReplacer(), 2)}
-            </pre> */}
           </div>
         )}
 
+        {/* 🆕 SECCIÓN FOTO DE PERFIL */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            📸 Foto de Perfil
+          </h2>
+          <UploadFoto 
+            fotoActual={fotoActual} 
+            onFotoActualizada={handleFotoActualizada}
+          />
+        </div>
+
         {/* Formulario */}
         <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-lg shadow-md p-6">
+          
           {/* Datos Personales */}
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4 pb-2 border-b">
@@ -246,7 +256,6 @@ const PerfilUsuario = () => {
               {...register('profesion')}
             />
 
-            {/* ========== NIVEL EDUCATIVO ========== */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Nivel Educativo
@@ -267,7 +276,6 @@ const PerfilUsuario = () => {
               )}
             </div>
 
-            {/* ========== ESTADO LABORAL ========== */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Estado Laboral
@@ -287,7 +295,6 @@ const PerfilUsuario = () => {
               )}
             </div>
 
-            {/* ========== DISPONIBILIDAD ========== */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Disponibilidad
@@ -307,7 +314,6 @@ const PerfilUsuario = () => {
               )}
             </div>
 
-            {/* ========== MODALIDAD PREFERIDA ========== */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Modalidad Preferida
@@ -355,7 +361,7 @@ const PerfilUsuario = () => {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => window.history.back()}
+              onClick={() => navigate('/candidato/dashboard')}
             >
               Cancelar
             </Button>
@@ -384,7 +390,7 @@ const PerfilUsuario = () => {
                 Una vez completado tu perfil básico, podrás:
               </p>
               <ul className="mt-2 text-sm text-blue-700 list-disc list-inside">
-                <li>Subir tu CV y foto de perfil</li>
+                <li>Subir tu CV y certificados</li>
                 <li>Agregar idiomas y certificaciones</li>
                 <li>Añadir referencias laborales</li>
                 <li>Aplicar a ofertas de trabajo</li>

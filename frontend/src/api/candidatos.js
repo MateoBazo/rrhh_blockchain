@@ -31,7 +31,36 @@ export const candidatosAPI = {
     return await axiosInstance.get(`/candidatos?${params}`);
   },
 
-  // ♻️ Funciones existentes (mantener compatibilidad):
+  /**
+   * 🆕 UPLOAD FOTO DE PERFIL
+   */
+  uploadFoto: async (formData) => {
+    return await axiosInstance.post('/upload/foto', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+  },
+
+  /**
+   * 🆕 ELIMINAR FOTO DE PERFIL
+   */
+  eliminarFoto: async () => {
+    return await axiosInstance.delete('/upload/foto');
+  },
+
+  /**
+   * 🆕 UPLOAD CV
+   */
+  uploadCV: async (formData) => {
+    return await axiosInstance.post('/upload/cv', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+  },
+
+  // ♻️ Funciones existentes (mantener compatibilidad)
   getAll: async (filters = {}) => {
     const response = await axiosInstance.get('/candidatos', { params: filters });
     return response.data;
@@ -45,23 +74,5 @@ export const candidatosAPI = {
   update: async (id, data) => {
     const response = await axiosInstance.put(`/candidatos/${id}`, data);
     return response.data;
-  },
-
-  uploadCV: async (file) => {
-    const formData = new FormData();
-    formData.append('cv', file);
-    const response = await axiosInstance.post('/upload/cv', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return response.data;
-  },
-
-  uploadPhoto: async (file) => {
-    const formData = new FormData();
-    formData.append('foto', file);
-    const response = await axiosInstance.post('/upload/foto', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return response.data;
-  },
+  }
 };
