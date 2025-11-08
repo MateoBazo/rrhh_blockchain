@@ -63,13 +63,21 @@ exports.subirDocumento = async (req, res) => {
       return errorResponse(res, 400, 'Ya tienes un documento idéntico subido (mismo contenido)');
     }
 
+    // 🆕 CORRECCIÓN: Construir path relativo en lugar de usar req.file.path absoluto
+    const pathRelativo = `uploads/documentos/${req.file.filename}`;
+
+    console.log('📁 Guardando documento:');
+    console.log('   - Filename:', req.file.filename);
+    console.log('   - Path absoluto (filesystem):', req.file.path);
+    console.log('   - Path relativo (BD):', pathRelativo);
+
     // Crear documento
     const documento = await Documento.create({
       usuario_id,
       tipo: tipoNormalizado,
       nombre_original: nombre_documento || req.file.originalname,
-      nombre_archivo_cifrado: req.file.filename, // Nombre generado por multer
-      path_cifrado: req.file.path,
+      nombre_archivo_cifrado: req.file.filename,
+      path_cifrado: pathRelativo, // 🆕 USAR PATH RELATIVO
       hash_sha256: hashArchivo,
       tamano_bytes: req.file.size,
       mime_type: req.file.mimetype,
@@ -85,7 +93,8 @@ exports.subirDocumento = async (req, res) => {
       tamano_bytes: documento.tamano_bytes,
       hash_sha256: documento.hash_sha256,
       descripcion: documento.descripcion,
-      fecha_subida: documento.fecha_subida
+      fecha_subida: documento.fecha_subida,
+      path_cifrado: documento.path_cifrado // 🆕 Incluir en respuesta para debug
     });
   } catch (error) {
     console.error('❌ Error en subirDocumento:', error);
@@ -118,7 +127,7 @@ exports.obtenerDocumentos = async (req, res) => {
 
     const documentos = await Documento.findAll({
       where: whereClause,
-      attributes: ['id', 'tipo', 'nombre_original', 'tamano_bytes', 'mime_type', 'hash_sha256', 'descripcion', 'publico', 'descargas', 'fecha_subida'],
+      attributes: ['id', 'tipo', 'nombre_original', 'nombre_archivo_cifrado', 'path_cifrado', 'tamano_bytes', 'mime_type', 'hash_sha256', 'descripcion', 'publico', 'descargas', 'fecha_subida'], // 🆕 Incluir path_cifrado
       order: [['fecha_subida', 'DESC']]
     });
 
@@ -141,7 +150,7 @@ exports.obtenerDocumentoPorId = async (req, res) => {
 
     const documento = await Documento.findOne({
       where: { id, usuario_id },
-      attributes: ['id', 'tipo', 'nombre_original', 'tamano_bytes', 'mime_type', 'hash_sha256', 'descripcion', 'publico', 'descargas', 'fecha_subida']
+      attributes: ['id', 'tipo', 'nombre_original', 'path_cifrado', 'tamano_bytes', 'mime_type', 'hash_sha256', 'descripcion', 'publico', 'descargas', 'fecha_subida'] // 🆕 Incluir path_cifrado
     });
 
     if (!documento) {
@@ -173,13 +182,20 @@ exports.verificarIntegridad = async (req, res) => {
       return errorResponse(res, 404, 'Documento no encontrado');
     }
 
+    // 🆕 Construir path absoluto desde path relativo para verificación
+    const pathAbsoluto = path.join(__dirname, '../../', documento.path_cifrado);
+
+    console.log('🔐 Verificando integridad:');
+    console.log('   - Path relativo (BD):', documento.path_cifrado);
+    console.log('   - Path absoluto (filesystem):', pathAbsoluto);
+
     // Verificar que el archivo existe
-    if (!fs.existsSync(documento.path_cifrado)) {
+    if (!fs.existsSync(pathAbsoluto)) {
       return errorResponse(res, 404, 'Archivo no encontrado en el servidor');
     }
 
     // Calcular hash actual del archivo
-    const hashActual = await calcularHashArchivo(documento.path_cifrado);
+    const hashActual = await calcularHashArchivo(pathAbsoluto);
 
     // Comparar con hash almacenado
     const integro = hashActual === documento.hash_sha256;
@@ -216,9 +232,19 @@ exports.eliminarDocumento = async (req, res) => {
       return errorResponse(res, 404, 'Documento no encontrado');
     }
 
+    // 🆕 Construir path absoluto desde path relativo para eliminar
+    const pathAbsoluto = path.join(__dirname, '../../', documento.path_cifrado);
+
+    console.log('🗑️ Eliminando documento:');
+    console.log('   - Path relativo (BD):', documento.path_cifrado);
+    console.log('   - Path absoluto (filesystem):', pathAbsoluto);
+
     // Eliminar archivo físico
-    if (fs.existsSync(documento.path_cifrado)) {
-      fs.unlinkSync(documento.path_cifrado);
+    if (fs.existsSync(pathAbsoluto)) {
+      fs.unlinkSync(pathAbsoluto);
+      console.log('✅ Archivo físico eliminado');
+    } else {
+      console.warn('⚠️ Archivo físico no existe, solo eliminando registro BD');
     }
 
     // Eliminar registro de BD
