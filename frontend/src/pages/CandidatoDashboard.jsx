@@ -1,25 +1,39 @@
 // file: frontend/src/pages/CandidatoDashboard.jsx
 import { useState, useEffect } from 'react';
-import { useAuth } from '../hooks/useAuth'; // ✅ CORRECTO: desde hooks
+import { useAuth } from '../hooks/useAuth';
 import { useNavigate, Link } from 'react-router-dom';
-import Avatar from '../components/common/Avatar'; // 🆕 IMPORT
+import Avatar from '../components/common/Avatar';
 import { candidatosAPI } from '../api/candidatos';
+import { documentosAPI } from '../api/documentos'; // 🆕 IMPORT
 import Button from '../components/common/Button';
 
 const CandidatoDashboard = () => {
-  const { user, logout } = useAuth(); // ✅ CORRECTO
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [candidato, setCandidato] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [totalDocumentos, setTotalDocumentos] = useState(0); // 🆕 ESTADO
 
-  // 🆕 CARGAR DATOS CANDIDATO AL MONTAR
+  // CARGAR DATOS CANDIDATO AL MONTAR
   useEffect(() => {
-    const cargarCandidato = async () => {
+    const cargarDatos = async () => {
       try {
-        const response = await candidatosAPI.obtenerPerfil();
-        if (response.data.success) {
-          setCandidato(response.data.data);
+        // Cargar perfil candidato
+        const responsePerfil = await candidatosAPI.obtenerPerfil();
+        if (responsePerfil.data.success) {
+          setCandidato(responsePerfil.data.data);
         }
+
+        // 🆕 Cargar total de documentos
+        try {
+          const responseDocs = await documentosAPI.getMisDocumentos();
+          if (responseDocs.data.success) {
+            setTotalDocumentos(responseDocs.data.data?.length || 0);
+          }
+        } catch (error) {
+          console.log('No se pudieron cargar documentos:', error);
+        }
+
       } catch (error) {
         console.error('Error al cargar candidato:', error);
       } finally {
@@ -27,7 +41,7 @@ const CandidatoDashboard = () => {
       }
     };
 
-    cargarCandidato();
+    cargarDatos();
   }, []);
 
   const handleLogout = () => {
@@ -49,7 +63,7 @@ const CandidatoDashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       
-      {/* 🆕 NAVBAR CON AVATAR */}
+      {/* NAVBAR CON AVATAR */}
       <nav className="bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           
@@ -75,19 +89,19 @@ const CandidatoDashboard = () => {
               </div>
             )}
 
-          {/* Avatar clickable */}
-          {candidato && (
-            <Avatar
-              fotoUrl={candidato.foto_perfil_url 
-                ? `${import.meta.env.VITE_API_URL}${candidato.foto_perfil_url}?t=${Date.now()}` 
-                : null
-              }
-              nombres={candidato.nombres || ''}
-              apellidoPaterno={candidato.apellido_paterno || ''}
-              size="md"
-              clickable={true}
-            />
-          )}
+            {/* Avatar clickable */}
+            {candidato && (
+              <Avatar
+                fotoUrl={candidato.foto_perfil_url 
+                  ? `${import.meta.env.VITE_API_URL}${candidato.foto_perfil_url}?t=${Date.now()}` 
+                  : null
+                }
+                nombres={candidato.nombres || ''}
+                apellidoPaterno={candidato.apellido_paterno || ''}
+                size="md"
+                clickable={true}
+              />
+            )}
 
             {/* Botón logout */}
             <Button
@@ -145,26 +159,33 @@ const CandidatoDashboard = () => {
             </div>
           </Link>
 
-          {/* Card: Subir CV (próximamente) */}
-          <div className="bg-white rounded-lg shadow-md p-6 opacity-60 cursor-not-allowed">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="bg-gray-100 p-3 rounded-full">
-                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          {/* 🆕 Card: Mis Documentos - HABILITADO */}
+          <Link to="/mis-documentos">
+            <div className="bg-white rounded-lg shadow-md p-6 cursor-pointer 
+                         hover:shadow-lg transition-shadow duration-200 border-2 border-transparent
+                         hover:border-green-500">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="bg-green-100 p-3 rounded-full">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Mis Documentos
+                </h3>
+              </div>
+              <p className="text-gray-600 text-sm mb-4">
+                Sube y gestiona tus certificados, títulos y documentación
+              </p>
+              <div className="flex items-center text-green-600 text-sm font-medium">
+                Ver documentos
+                <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">
-                Mis Documentos
-              </h3>
             </div>
-            <p className="text-gray-600 text-sm mb-4">
-              Sube y gestiona tus certificados, títulos y documentación
-            </p>
-            <div className="flex items-center text-gray-400 text-sm font-medium">
-              Próximamente
-            </div>
-          </div>
+          </Link>
 
           {/* Card: Postulaciones (próximamente) */}
           <div className="bg-white rounded-lg shadow-md p-6 opacity-60 cursor-not-allowed">
@@ -208,7 +229,9 @@ const CandidatoDashboard = () => {
               <p className="text-sm text-gray-600 mt-1">Perfil Completo</p>
             </div>
             <div className="text-center">
-              <p className="text-3xl font-bold text-blue-600">0</p>
+              <p className="text-3xl font-bold text-green-600">
+                {totalDocumentos}
+              </p>
               <p className="text-sm text-gray-600 mt-1">Documentos</p>
             </div>
             <div className="text-center">

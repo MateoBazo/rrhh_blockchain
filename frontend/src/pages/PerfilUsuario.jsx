@@ -9,7 +9,8 @@ import { candidatosAPI } from '../api/candidatos';
 import FormField from '../components/common/FormField';
 import Button from '../components/common/Button';
 import Loader from '../components/common/Loader';
-import UploadFoto from '../components/upload/uploadFoto'; // 🆕 IMPORT
+import UploadFoto from '../components/upload/uploadFoto';
+import UploadDocumento from '../components/upload/UploadDocumento'; // 🆕 IMPORT
 import { perfilCandidatoSchema } from '../schemas/perfilSchema';
 
 const PerfilUsuario = () => {
@@ -17,7 +18,7 @@ const PerfilUsuario = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [candidatoData, setCandidatoData] = useState(null);
-  const [fotoActual, setFotoActual] = useState(null); // 🆕 ESTADO FOTO
+  const [fotoActual, setFotoActual] = useState(null);
 
   const {
     register,
@@ -55,7 +56,7 @@ const PerfilUsuario = () => {
 
         setCandidatoData(datos);
 
-        // 🆕 Setear foto si existe
+        // Setear foto si existe
         if (datos.foto_perfil_url) {
           setFotoActual(`${import.meta.env.VITE_API_URL}${datos.foto_perfil_url}?t=${Date.now()}`);
         }
@@ -114,13 +115,20 @@ const PerfilUsuario = () => {
     }
   };
 
-  // 🆕 HANDLER: FOTO ACTUALIZADA
+  // HANDLER: FOTO ACTUALIZADA
   const handleFotoActualizada = (nuevaFotoUrl) => {
     if (nuevaFotoUrl) {
       setFotoActual(`${import.meta.env.VITE_API_URL}${nuevaFotoUrl}?t=${Date.now()}`);
     } else {
       setFotoActual(null);
     }
+  };
+
+  // 🆕 HANDLER: DOCUMENTO SUBIDO
+  const handleDocumentoSubido = (documentoData) => {
+    console.log('✅ Documento subido:', documentoData);
+    toast.success(`📄 Documento "${documentoData.nombre_original}" subido correctamente`);
+    // Aquí podrías recargar lista de documentos cuando la implementemos
   };
 
   if (loading) {
@@ -134,6 +142,7 @@ const PerfilUsuario = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
+        
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Mi Perfil</h1>
@@ -156,7 +165,7 @@ const PerfilUsuario = () => {
           </div>
         )}
 
-        {/* 🆕 SECCIÓN FOTO DE PERFIL */}
+        {/* SECCIÓN FOTO DE PERFIL */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
             📸 Foto de Perfil
@@ -165,6 +174,20 @@ const PerfilUsuario = () => {
             fotoActual={fotoActual} 
             onFotoActualizada={handleFotoActualizada}
           />
+        </div>
+
+        {/* 🆕 SECCIÓN DOCUMENTOS */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+              📄 Mis Documentos
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">
+              Sube tu CV, certificados, títulos académicos y otros documentos relevantes
+            </p>
+          </div>
+          
+          <UploadDocumento onDocumentoSubido={handleDocumentoSubido} />
         </div>
 
         {/* Formulario */}
@@ -379,7 +402,7 @@ const PerfilUsuario = () => {
         {/* Info adicional */}
         <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex">
-            <svg className="h-5 w-5 text-blue-600 mr-3" fill="currentColor" viewBox="0 0 20 20">
+            <svg className="h-5 w-5 text-blue-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
             </svg>
             <div>
@@ -390,7 +413,7 @@ const PerfilUsuario = () => {
                 Una vez completado tu perfil básico, podrás:
               </p>
               <ul className="mt-2 text-sm text-blue-700 list-disc list-inside">
-                <li>Subir tu CV y certificados</li>
+                <li>Subir tu CV y certificados ✅ (Ya disponible arriba)</li>
                 <li>Agregar idiomas y certificaciones</li>
                 <li>Añadir referencias laborales</li>
                 <li>Aplicar a ofertas de trabajo</li>
@@ -398,6 +421,7 @@ const PerfilUsuario = () => {
             </div>
           </div>
         </div>
+
       </div>
     </div>
   );

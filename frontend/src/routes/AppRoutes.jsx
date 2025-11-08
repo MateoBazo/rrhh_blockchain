@@ -1,4 +1,4 @@
-// file: src/routes/AppRoutes.jsx
+// file: frontend/src/routes/AppRoutes.jsx
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '../context/AuthContext';
 import ProtectedRoute from './ProtectedRoute';
@@ -8,12 +8,13 @@ import Login from '../pages/Login';
 import Registro from '../pages/Registro';
 import Landing from '../pages/Landing';
 
-// Páginas protegidas (crearemos después)
+// Páginas protegidas
 import Dashboard from '../pages/Dashboard';
 import CandidatoDashboard from '../pages/CandidatoDashboard';
 import EmpresaDashboard from '../pages/EmpresaDashboard';
 import AdminDashboard from '../pages/AdminDashboard';
 import PerfilUsuario from '../pages/PerfilUsuario';
+import MisDocumentos from '../pages/MisDocumentos'; // 🆕 IMPORT
 
 export default function AppRoutes() {
   return (
@@ -44,7 +45,8 @@ export default function AppRoutes() {
               </ProtectedRoute>
             }
           />
-          {/* 🆕 AGREGAR: Perfil de Usuario (Candidato) */}
+
+          {/* Perfil de Usuario (Candidato) */}
           <Route
             path="/perfil"
             element={
@@ -53,6 +55,17 @@ export default function AppRoutes() {
               </ProtectedRoute>
             }
           />
+
+          {/* 🆕 Mis Documentos (Candidato) */}
+          <Route
+            path="/mis-documentos"
+            element={
+              <ProtectedRoute allowedRoles={['CANDIDATO']}>
+                <MisDocumentos />
+              </ProtectedRoute>
+            }
+          />
+
           {/* Dashboard Empresa */}
           <Route
             path="/empresa/dashboard"
