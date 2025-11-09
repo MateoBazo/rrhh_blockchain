@@ -4,7 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { registroSchema } from '../utils/validators';
-import { useAuth } from '../hooks/useAuth'; // ✅ Actualizar import
+import { useAuth } from '../hooks/useAuth'; 
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import { UserIcon, BuildingOfficeIcon } from '@heroicons/react/24/outline';
@@ -12,7 +12,7 @@ import clsx from 'clsx';
 
 export default function Registro() {
   const navigate = useNavigate();
-  const { register: registerUser } = useAuth(); // ✅ Actualizar aquí también
+  const { register: registerUser } = useAuth(); 
   const [isLoading, setIsLoading] = useState(false);
   const [selectedRole, setSelectedRole] = useState('CANDIDATO');
 
@@ -21,7 +21,7 @@ export default function Registro() {
     handleSubmit,
     formState: { errors },
     setValue,
-    // watch, // ❌ ELIMINAR esta línea (no se usa)
+
   } = useForm({
     resolver: zodResolver(registroSchema),
     defaultValues: {
@@ -244,7 +244,6 @@ export default function Registro() {
                 clipRule="evenodd"
               />
             </svg>
-            Tus datos están protegidos con encriptación de grado bancario
           </p>
         </div>
       </div>

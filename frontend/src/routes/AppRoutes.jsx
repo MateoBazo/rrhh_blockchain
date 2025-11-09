@@ -1,4 +1,5 @@
 // file: frontend/src/routes/AppRoutes.jsx
+
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '../context/AuthContext';
 import ProtectedRoute from './ProtectedRoute';
@@ -14,7 +15,8 @@ import CandidatoDashboard from '../pages/CandidatoDashboard';
 import EmpresaDashboard from '../pages/EmpresaDashboard';
 import AdminDashboard from '../pages/AdminDashboard';
 import PerfilUsuario from '../pages/PerfilUsuario';
-import MisDocumentos from '../pages/MisDocumentos'; // 🆕 IMPORT
+import MisDocumentos from '../pages/MisDocumentos';
+import MisReferencias from '../pages/MisReferencias'; // 🆕 IMPORT
 
 export default function AppRoutes() {
   return (
@@ -56,12 +58,22 @@ export default function AppRoutes() {
             }
           />
 
-          {/* 🆕 Mis Documentos (Candidato) */}
+          {/* Mis Documentos (Candidato) */}
           <Route
             path="/mis-documentos"
             element={
               <ProtectedRoute allowedRoles={['CANDIDATO']}>
                 <MisDocumentos />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* 🆕 Mis Referencias (Candidato) */}
+          <Route
+            path="/mis-referencias"
+            element={
+              <ProtectedRoute allowedRoles={['CANDIDATO']}>
+                <MisReferencias />
               </ProtectedRoute>
             }
           />
