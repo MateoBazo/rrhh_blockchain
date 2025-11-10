@@ -8,6 +8,7 @@ import ProtectedRoute from './ProtectedRoute';
 import Login from '../pages/Login';
 import Registro from '../pages/Registro';
 import Landing from '../pages/Landing';
+import VerificarReferencia from '../pages/VerificarReferencia';
 
 // Páginas protegidas
 import Dashboard from '../pages/Dashboard';
@@ -27,6 +28,7 @@ export default function AppRoutes() {
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/registro" element={<Registro />} />
+          <Route path="/verificar-referencia/:token" element={<VerificarReferencia />} />
 
           {/* Dashboard genérico (redirige según rol) */}
           <Route

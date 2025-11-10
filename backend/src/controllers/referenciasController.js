@@ -1,8 +1,10 @@
 // file: backend/src/controllers/referenciasController.js
-const { Referencia, Candidato } = require('../models');
+
+const { Referencia, Candidato, TokenVerificacion } = require('../models'); // 🆕 Agregar TokenVerificacion
 const { successResponse, errorResponse } = require('../utils/responses');
 const { validationResult } = require('express-validator');
 const { Op } = require('sequelize');
+const emailService = require('../services/emailService'); // 🆕 Agregar emailService
 
 /**
  * @desc    Crear nueva referencia
@@ -244,5 +246,161 @@ exports.eliminarReferencia = async (req, res) => {
   } catch (error) {
     console.error('❌ Error en eliminarReferencia:', error);
     return errorResponse(res, 500, 'Error al eliminar referencia', error.message);
+  }
+};
+
+// ============================================
+// 🆕 NUEVOS MÉTODOS S008.2 - VERIFICACIÓN
+// ============================================
+
+/**
+ * @desc    Enviar email de verificación
+ * @route   POST /api/referencias/:id/enviar-verificacion
+ * @access  Private (CANDIDATO - solo su propia referencia)
+ */
+exports.enviarVerificacion = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Buscar referencia con datos del candidato
+    const referencia = await Referencia.findByPk(id, {
+      include: [{
+        model: Candidato,
+        as: 'candidato'
+      }]
+    });
+
+    if (!referencia) {
+      return errorResponse(res, 404, 'Referencia no encontrada');
+    }
+
+    // RBAC: Solo el candidato dueño puede enviar verificación
+    if (req.usuario.rol !== 'ADMIN' && referencia.candidato.usuario_id !== req.usuario.id) {
+      return errorResponse(res, 403, 'No tienes permiso para esta acción');
+    }
+
+    // Validar que no esté ya verificada
+    if (referencia.verificado) {
+      return errorResponse(res, 400, 'Esta referencia ya está verificada');
+    }
+
+    // Verificar si ya existe un token válido reciente
+    const tokenExistente = await TokenVerificacion.findOne({
+      where: {
+        referencia_id: id,
+        usado: false
+      },
+      order: [['fecha_generacion', 'DESC']]
+    });
+
+    // Si existe token válido creado hace menos de 1 hora, no crear nuevo
+    if (tokenExistente && !tokenExistente.estaExpirado()) {
+      const minutosDesdeCreacion = Math.floor((new Date() - new Date(tokenExistente.fecha_generacion)) / 60000);
+      
+      if (minutosDesdeCreacion < 60) {
+        return errorResponse(res, 429, `Ya se envió un email de verificación hace ${minutosDesdeCreacion} minutos. Por favor espera antes de reenviar.`);
+      }
+    }
+
+    // Generar nuevo token
+    const token = TokenVerificacion.generarToken();
+    const fechaExpiracion = new Date();
+    fechaExpiracion.setDate(fechaExpiracion.getDate() + 7); // Expira en 7 días
+
+    // Guardar token en BD
+    const tokenVerificacion = await TokenVerificacion.create({
+      referencia_id: id,
+      token,
+      fecha_expiracion: fechaExpiracion
+    });
+
+    // Enviar email
+    try {
+      await emailService.enviarEmailVerificacion(referencia, token);
+      
+      console.log(`📧 Email de verificación enviado para referencia ${id}`);
+      
+      return successResponse(res, 200, 'Email de verificación enviado exitosamente', {
+        email_enviado_a: referencia.email,
+        expira_en: '7 días'
+      });
+
+    } catch (emailError) {
+      // Si falla el envío de email, eliminar token
+      await tokenVerificacion.destroy();
+      console.error('❌ Error al enviar email:', emailError);
+      
+      return errorResponse(res, 500, 'Error al enviar email de verificación. Verifica la configuración SMTP.');
+    }
+
+  } catch (error) {
+    console.error('❌ Error en enviarVerificacion:', error);
+    return errorResponse(res, 500, 'Error al procesar solicitud de verificación', error.message);
+  }
+};
+
+/**
+ * @desc    Verificar referencia con token
+ * @route   GET /api/referencias/verificar/:token
+ * @access  Public
+ */
+exports.verificarReferencia = async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    // Buscar token
+    const tokenVerificacion = await TokenVerificacion.findOne({
+      where: { token },
+      include: [{
+        model: Referencia,
+        as: 'referencia',
+        include: [{
+          model: Candidato,
+          as: 'candidato'
+        }]
+      }]
+    });
+
+    if (!tokenVerificacion) {
+      return errorResponse(res, 404, 'Token de verificación no encontrado o inválido');
+    }
+
+    // Validar que el token no esté usado
+    if (tokenVerificacion.usado) {
+      return errorResponse(res, 400, 'Este link de verificación ya fue utilizado');
+    }
+
+    // Validar que el token no esté expirado
+    if (tokenVerificacion.estaExpirado()) {
+      return errorResponse(res, 400, 'Este link de verificación ha expirado. Solicita uno nuevo al candidato.');
+    }
+
+    // Marcar referencia como verificada
+    await tokenVerificacion.referencia.update({
+      verificado: true,
+      fecha_verificacion: new Date()
+    });
+
+    // Marcar token como usado
+    await tokenVerificacion.update({
+      usado: true,
+      fecha_uso: new Date(),
+      ip_verificacion: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent')
+    });
+
+    console.log(`✅ Referencia ${tokenVerificacion.referencia_id} verificada exitosamente`);
+
+    return successResponse(res, 200, 'Referencia verificada exitosamente', {
+      referencia: {
+        nombre_completo: tokenVerificacion.referencia.nombre_completo,
+        candidato: tokenVerificacion.referencia.candidato.nombres + ' ' + tokenVerificacion.referencia.candidato.apellido_paterno,
+        fecha_verificacion: tokenVerificacion.referencia.fecha_verificacion
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error en verificarReferencia:', error);
+    return errorResponse(res, 500, 'Error al verificar referencia', error.message);
   }
 };

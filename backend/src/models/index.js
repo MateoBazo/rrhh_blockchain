@@ -1,4 +1,5 @@
 // file: backend/src/models/index.js
+
 const { sequelize } = require('../config/database');
 const { Sequelize } = require('sequelize');
 
@@ -11,8 +12,8 @@ const Usuario = require('./Usuario');
 const Empresa = require('./Empresa');
 const Candidato = require('./Candidato');
 
-// Modelos nuevos S006 (factories que necesitan sequelize)
-let Referencia, Idioma, Certificacion, Documento, ContratoLaboral;
+// Modelos nuevos S006 y S008 (factories que necesitan sequelize)
+let Referencia, TokenVerificacion, Idioma, Certificacion, Documento, ContratoLaboral;
 let NotificacionUsuario, RegistroBlockchain, AuditoriaAccion;
 let Educacion, ExperienciaLaboral, Habilidad;
 
@@ -21,6 +22,13 @@ try {
   Referencia = require('./Referencia')(sequelize);
 } catch (e) {
   console.warn('⚠️  Modelo Referencia no encontrado');
+}
+
+// 🆕 Inicializar modelo TokenVerificacion S008.2
+try {
+  TokenVerificacion = require('./TokenVerificacion')(sequelize);
+} catch (e) {
+  console.warn('⚠️  Modelo TokenVerificacion no encontrado');
 }
 
 try {
@@ -120,6 +128,7 @@ const models = {
   Empresa,
   Candidato,
   Referencia,
+  TokenVerificacion, // 🆕 AGREGADO
   Idioma,
   Certificacion,
   Documento,

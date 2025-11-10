@@ -4,11 +4,12 @@
  * COMPONENTE: Lista de Referencias
  * 
  * Muestra referencias en cards con estado de verificación.
- * Incluye badges para verificado/no verificado.
+ * Incluye badges y botón para enviar verificación.
  */
 
 import { useState } from 'react';
-import { FaEdit, FaTrash, FaPhone, FaEnvelope, FaBriefcase, FaCheckCircle, FaClock } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPhone, FaEnvelope, FaBriefcase, FaCheckCircle, FaClock, FaPaperPlane } from 'react-icons/fa';
+import { referenciasAPI } from '../../api/referencias';
 
 // Helper para formatear tipo de relación
 const formatearRelacion = (relacion) => {
@@ -25,6 +26,8 @@ const formatearRelacion = (relacion) => {
 
 export default function ListaReferencias({ referencias, onEditar, onEliminar, loading }) {
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [enviandoVerificacion, setEnviandoVerificacion] = useState(null);
+  const [mensajeVerificacion, setMensajeVerificacion] = useState({});
 
   /**
    * Handler para confirmación de eliminación
@@ -35,8 +38,61 @@ export default function ListaReferencias({ referencias, onEditar, onEliminar, lo
       setConfirmDelete(null);
     } else {
       setConfirmDelete(id);
-      // Auto-cancelar después de 3 segundos
       setTimeout(() => setConfirmDelete(null), 3000);
+    }
+  };
+
+  /**
+   * Handler para enviar verificación
+   */
+  const handleEnviarVerificacion = async (id) => {
+    try {
+      setEnviandoVerificacion(id);
+      setMensajeVerificacion({});
+
+      const response = await referenciasAPI.enviarVerificacion(id);
+      
+      console.log('✅ Email de verificación enviado:', response.data);
+      
+      setMensajeVerificacion({
+        [id]: {
+          tipo: 'success',
+          texto: `✅ Email enviado a ${response.data.data.email_enviado_a}. Expira en ${response.data.data.expira_en}.`
+        }
+      });
+
+      // Limpiar mensaje después de 5 segundos
+      setTimeout(() => {
+        setMensajeVerificacion({});
+      }, 5000);
+
+    } catch (error) {
+      console.error('❌ Error al enviar verificación:', error);
+      
+      let mensajeError = 'Error al enviar email de verificación';
+      
+      if (error.response?.status === 429) {
+        mensajeError = error.response.data.mensaje || 'Ya se envió un email recientemente. Espera antes de reenviar.';
+      } else if (error.response?.status === 400) {
+        mensajeError = error.response.data.mensaje || 'Esta referencia ya está verificada';
+      } else if (error.response?.status === 500) {
+        mensajeError = 'Error al enviar email. Verifica la configuración del servidor.';
+      }
+      
+      setMensajeVerificacion({
+        [id]: {
+          tipo: 'error',
+          texto: `❌ ${mensajeError}`
+        }
+      });
+
+      // Limpiar mensaje después de 5 segundos
+      setTimeout(() => {
+        setMensajeVerificacion({});
+      }, 5000);
+
+    } finally {
+      setEnviandoVerificacion(null);
     }
   };
 
@@ -72,7 +128,7 @@ export default function ListaReferencias({ referencias, onEditar, onEliminar, lo
           {/* Header: Nombre y Estado de Verificación */}
           <div className="flex justify-between items-start mb-4">
             <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center gap-3 mb-2 flex-wrap">
                 <h3 className="text-xl font-bold text-gray-800">{ref.nombre_completo}</h3>
                 
                 {/* Badge de verificación */}
@@ -174,6 +230,53 @@ export default function ListaReferencias({ referencias, onEditar, onEliminar, lo
             </div>
           )}
 
+          {/* 🆕 Sección de Verificación */}
+          {!ref.verificado && (
+            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-start gap-3">
+                <div className="flex-1">
+                  <h4 className="font-semibold text-yellow-900 mb-2">
+                    📧 Verificación Pendiente
+                  </h4>
+                  <p className="text-sm text-yellow-800 mb-3">
+                    Esta referencia aún no ha sido verificada. Envía un email de verificación para que la persona confirme su consentimiento.
+                  </p>
+                  
+                  {/* Botón enviar verificación */}
+                  <button
+                    onClick={() => handleEnviarVerificacion(ref.id)}
+                    disabled={enviandoVerificacion === ref.id}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                      enviandoVerificacion === ref.id
+                        ? 'bg-gray-400 text-white cursor-not-allowed'
+                        : 'bg-yellow-600 text-white hover:bg-yellow-700'
+                    }`}
+                  >
+                    <FaPaperPlane />
+                    {enviandoVerificacion === ref.id ? 'Enviando...' : 'Enviar Verificación'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Mensaje de resultado */}
+              {mensajeVerificacion[ref.id] && (
+                <div className={`mt-3 p-3 rounded-lg ${
+                  mensajeVerificacion[ref.id].tipo === 'success' 
+                    ? 'bg-green-50 border border-green-200' 
+                    : 'bg-red-50 border border-red-200'
+                }`}>
+                  <p className={`text-sm font-medium ${
+                    mensajeVerificacion[ref.id].tipo === 'success' 
+                      ? 'text-green-800' 
+                      : 'text-red-800'
+                  }`}>
+                    {mensajeVerificacion[ref.id].texto}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Fecha de verificación */}
           {ref.verificado && ref.fecha_verificacion && (
             <div className="mt-3 pt-3 border-t border-gray-200">
@@ -181,7 +284,9 @@ export default function ListaReferencias({ referencias, onEditar, onEliminar, lo
                 Verificada el {new Date(ref.fecha_verificacion).toLocaleDateString('es-BO', {
                   year: 'numeric',
                   month: 'long',
-                  day: 'numeric'
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
                 })}
               </p>
             </div>

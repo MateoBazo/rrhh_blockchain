@@ -41,5 +41,24 @@ export const referenciasAPI = {
    */
   eliminar: async (id) => {
     return api.delete(`/referencias/${id}`);
+  },
+
+  // 🆕 NUEVOS MÉTODOS S008.2 - VERIFICACIÓN
+
+  /**
+   * Enviar email de verificación
+   */
+  enviarVerificacion: async (id) => {
+    return api.post(`/referencias/${id}/enviar-verificacion`);
+  },
+
+  /**
+   * Verificar referencia con token (sin autenticación)
+   */
+  verificarReferencia: async (token) => {
+    // Usar axios directamente sin interceptor de auth
+    const axios = (await import('axios')).default;
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    return axios.get(`${API_URL}/api/referencias/verificar/${token}`);
   }
 };
