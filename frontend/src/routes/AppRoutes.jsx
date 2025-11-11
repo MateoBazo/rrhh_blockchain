@@ -10,27 +10,36 @@ import Registro from '../pages/Registro';
 import Landing from '../pages/Landing';
 import VerificarReferencia from '../pages/VerificarReferencia';
 
-// Páginas protegidas
+// Páginas protegidas - Candidato
 import Dashboard from '../pages/Dashboard';
 import CandidatoDashboard from '../pages/CandidatoDashboard';
-import EmpresaDashboard from '../pages/EmpresaDashboard';
-import AdminDashboard from '../pages/AdminDashboard';
 import PerfilUsuario from '../pages/PerfilUsuario';
 import MisDocumentos from '../pages/MisDocumentos';
-import MisReferencias from '../pages/MisReferencias'; // 🆕 IMPORT
+import MisReferencias from '../pages/MisReferencias';
+
+// Páginas protegidas - Empresa
+import EmpresaDashboard from '../pages/EmpresaDashboard';
+import ReferenciasVerificadas from '../pages/ReferenciasVerificadas'; // 🆕 NUEVO
+
+// Páginas protegidas - Admin
+import AdminDashboard from '../pages/AdminDashboard';
 
 export default function AppRoutes() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          {/* Rutas públicas */}
+          {/* ============================================ */}
+          {/* RUTAS PÚBLICAS */}
+          {/* ============================================ */}
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/registro" element={<Registro />} />
           <Route path="/verificar-referencia/:token" element={<VerificarReferencia />} />
 
-          {/* Dashboard genérico (redirige según rol) */}
+          {/* ============================================ */}
+          {/* DASHBOARD GENÉRICO (redirige según rol) */}
+          {/* ============================================ */}
           <Route
             path="/dashboard"
             element={
@@ -40,7 +49,9 @@ export default function AppRoutes() {
             }
           />
 
-          {/* Dashboard Candidato */}
+          {/* ============================================ */}
+          {/* RUTAS CANDIDATO */}
+          {/* ============================================ */}
           <Route
             path="/candidato/dashboard"
             element={
@@ -50,7 +61,6 @@ export default function AppRoutes() {
             }
           />
 
-          {/* Perfil de Usuario (Candidato) */}
           <Route
             path="/perfil"
             element={
@@ -60,7 +70,6 @@ export default function AppRoutes() {
             }
           />
 
-          {/* Mis Documentos (Candidato) */}
           <Route
             path="/mis-documentos"
             element={
@@ -70,7 +79,6 @@ export default function AppRoutes() {
             }
           />
 
-          {/* 🆕 Mis Referencias (Candidato) */}
           <Route
             path="/mis-referencias"
             element={
@@ -80,7 +88,9 @@ export default function AppRoutes() {
             }
           />
 
-          {/* Dashboard Empresa */}
+          {/* ============================================ */}
+          {/* RUTAS EMPRESA */}
+          {/* ============================================ */}
           <Route
             path="/empresa/dashboard"
             element={
@@ -90,7 +100,19 @@ export default function AppRoutes() {
             }
           />
 
-          {/* Dashboard Admin */}
+          {/* 🆕 NUEVA RUTA S008.3 - Ver referencias verificadas de candidato */}
+          <Route
+            path="/empresa/candidatos/:id/referencias"
+            element={
+              <ProtectedRoute allowedRoles={['EMPRESA']}>
+                <ReferenciasVerificadas />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ============================================ */}
+          {/* RUTAS ADMIN */}
+          {/* ============================================ */}
           <Route
             path="/admin/dashboard"
             element={
@@ -100,7 +122,9 @@ export default function AppRoutes() {
             }
           />
 
-          {/* Ruta 404 */}
+          {/* ============================================ */}
+          {/* RUTA 404 */}
+          {/* ============================================ */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>

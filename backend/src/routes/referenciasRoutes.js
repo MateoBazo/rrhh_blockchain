@@ -3,15 +3,17 @@
 const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
-const { verificarToken } = require('../middlewares/auth');
+const { verificarToken, verificarRoles } = require('../middlewares/auth'); // ✅ verificarRoles (con S)
 const {
   crearReferencia,
   obtenerReferencias,
   obtenerReferenciaPorId,
   actualizarReferencia,
   eliminarReferencia,
-  enviarVerificacion,      // 🆕 NUEVO
-  verificarReferencia      // 🆕 NUEVO
+  enviarVerificacion,
+  verificarReferencia,
+  obtenerReferenciasVerificadas, // 🆕 S008.3
+  registrarAcceso                // 🆕 S008.3
 } = require('../controllers/referenciasController');
 
 // Validaciones
@@ -25,8 +27,18 @@ const validacionReferencia = [
   body('notas').optional().trim()
 ];
 
+// 🆕 Validaciones para registrar acceso S008.3
+const validacionRegistrarAcceso = [
+  body('motivo')
+    .notEmpty().withMessage('El motivo es requerido')
+    .isLength({ min: 100, max: 1000 }).withMessage('El motivo debe tener entre 100 y 1000 caracteres'),
+  body('duracion_vista_segundos')
+    .optional()
+    .isInt({ min: 1, max: 3600 }).withMessage('Duración debe estar entre 1 y 3600 segundos')
+];
+
 // ============================================
-// 🆕 RUTAS PÚBLICAS (sin autenticación)
+// RUTAS PÚBLICAS (sin autenticación)
 // IMPORTANTE: Estas deben ir ANTES del middleware verificarToken
 // ============================================
 
@@ -40,8 +52,8 @@ router.get('/verificar/:token', verificarReferencia);
 // Aplicar middleware de autenticación a todas las rutas siguientes
 router.use(verificarToken);
 
-// POST /api/referencias - Crear referencia
-router.post('/', validacionReferencia, crearReferencia);
+// POST /api/referencias - Crear referencia (CANDIDATO)
+router.post('/', verificarRoles(['CANDIDATO', 'ADMIN']), validacionReferencia, crearReferencia);
 
 // GET /api/referencias - Obtener todas las referencias
 router.get('/', obtenerReferencias);
@@ -49,13 +61,23 @@ router.get('/', obtenerReferencias);
 // GET /api/referencias/:id - Obtener referencia por ID
 router.get('/:id', obtenerReferenciaPorId);
 
-// PUT /api/referencias/:id - Actualizar referencia
-router.put('/:id', validacionReferencia, actualizarReferencia);
+// PUT /api/referencias/:id - Actualizar referencia (CANDIDATO)
+router.put('/:id', verificarRoles(['CANDIDATO', 'ADMIN']), validacionReferencia, actualizarReferencia);
 
-// DELETE /api/referencias/:id - Eliminar referencia
-router.delete('/:id', eliminarReferencia);
+// DELETE /api/referencias/:id - Eliminar referencia (CANDIDATO)
+router.delete('/:id', verificarRoles(['CANDIDATO', 'ADMIN']), eliminarReferencia);
 
-// 🆕 POST /api/referencias/:id/enviar-verificacion - Enviar email verificación
-router.post('/:id/enviar-verificacion', enviarVerificacion);
+// POST /api/referencias/:id/enviar-verificacion - Enviar email verificación (CANDIDATO)
+router.post('/:id/enviar-verificacion', verificarRoles(['CANDIDATO', 'ADMIN']), enviarVerificacion);
+
+// ============================================
+// 🆕 RUTAS S008.3 - CONSULTA EMPRESA
+// ============================================
+
+// GET /api/referencias/candidatos/:id/verificadas - Obtener referencias verificadas (EMPRESA)
+router.get('/candidatos/:id/verificadas', verificarRoles(['EMPRESA', 'ADMIN']), obtenerReferenciasVerificadas);
+
+// POST /api/referencias/:id/registrar-acceso - Registrar acceso empresa (EMPRESA)
+router.post('/:id/registrar-acceso', verificarRoles(['EMPRESA', 'ADMIN']), validacionRegistrarAcceso, registrarAcceso);
 
 module.exports = router;

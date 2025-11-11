@@ -1,15 +1,16 @@
 // file: backend/src/models/Referencia.js
+
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
   const Referencia = sequelize.define('Referencia', {
     id: {
-      type: DataTypes.INTEGER.UNSIGNED,  // ✅ UNSIGNED
+      type: DataTypes.INTEGER.UNSIGNED,
       primaryKey: true,
       autoIncrement: true
     },
     candidato_id: {
-      type: DataTypes.INTEGER.UNSIGNED,  // ✅ CAMBIAR A UNSIGNED
+      type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,
       references: {
         model: 'candidatos',
@@ -22,11 +23,11 @@ module.exports = (sequelize) => {
     },
     cargo: {
       type: DataTypes.STRING(100),
-      allowNull: true
+      allowNull: false
     },
     empresa: {
       type: DataTypes.STRING(150),
-      allowNull: true
+      allowNull: false
     },
     email: {
       type: DataTypes.STRING(100),
@@ -40,12 +41,8 @@ module.exports = (sequelize) => {
       allowNull: true
     },
     relacion: {
-      type: DataTypes.ENUM('SUPERVISOR', 'COLEGA', 'PROFESOR', 'CLIENTE', 'OTRO', 'JEFE_DIRECTO'),  // ✅ Agregar JEFE_DIRECTO
+      type: DataTypes.STRING(100), // ✅ Cambiar de ENUM a STRING para más flexibilidad
       allowNull: false
-    },
-    anos_conocidos: {
-      type: DataTypes.INTEGER.UNSIGNED,
-      allowNull: true
     },
     notas: {
       type: DataTypes.TEXT,
@@ -58,22 +55,56 @@ module.exports = (sequelize) => {
     fecha_verificacion: {
       type: DataTypes.DATE,
       allowNull: true
+    },
+    created_at: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW
+    },
+    updated_at: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW
     }
   }, {
     tableName: 'referencias',
-    timestamps: true,
+    timestamps: false, // ✅ Manejamos created_at/updated_at manualmente
     underscored: true,
     indexes: [
       { fields: ['candidato_id'] },
-      { fields: ['verificado'] }
+      { fields: ['verificado'] },
+      { fields: ['email'] }
     ]
   });
 
+  // ============================================
+  // ASOCIACIONES
+  // ============================================
   Referencia.associate = (models) => {
-    Referencia.belongsTo(models.Candidato, {
+    // Referencia -> Candidato (N:1)
+    // ✅ IMPORTANTE: Usar el nombre exacto del modelo exportado
+    Referencia.belongsTo(models.Candidato || models.candidatos, {
       foreignKey: 'candidato_id',
       as: 'candidato'
     });
+
+    // Referencia -> TokenVerificacion (1:1)
+    if (models.TokenVerificacion) {
+      Referencia.hasOne(models.TokenVerificacion, {
+        foreignKey: 'referencia_id',
+        as: 'token',
+        onDelete: 'CASCADE'
+      });
+    }
+
+    // Referencia -> AccesoReferencia (1:N)
+    if (models.AccesoReferencia) {
+      Referencia.hasMany(models.AccesoReferencia, {
+        foreignKey: 'referencia_id',
+        as: 'accesos',
+        onDelete: 'CASCADE'
+      });
+    }
   };
 
   return Referencia;

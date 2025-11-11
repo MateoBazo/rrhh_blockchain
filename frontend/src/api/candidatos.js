@@ -2,6 +2,14 @@
 import axiosInstance from './axios';
 
 export const candidatosAPI = {
+    /**
+   * 🆕 S008.3 - Obtener candidatos con referencias verificadas (para empresas)
+   */
+  getCandidatosConReferenciasVerificadas: async () => {
+    const response = await axiosInstance.get('/candidatos/con-referencias-verificadas');
+    return response.data;
+  },
+
   /**
    * 🆕 Obtener perfil del candidato actual (usuario logueado)
    */
@@ -60,7 +68,7 @@ export const candidatosAPI = {
     });
   },
 
-  // ♻️ Funciones existentes (mantener compatibilidad)
+  // Funciones existentes (mantener compatibilidad)
   getAll: async (filters = {}) => {
     const response = await axiosInstance.get('/candidatos', { params: filters });
     return response.data;

@@ -1,10 +1,10 @@
 // file: backend/src/controllers/referenciasController.js
 
-const { Referencia, Candidato, TokenVerificacion } = require('../models'); // 🆕 Agregar TokenVerificacion
+const { Referencia, Candidato, TokenVerificacion, AccesoReferencia, Empresa, Usuario } = require('../models');
 const { successResponse, errorResponse } = require('../utils/responses');
 const { validationResult } = require('express-validator');
 const { Op } = require('sequelize');
-const emailService = require('../services/emailService'); // 🆕 Agregar emailService
+const emailService = require('../services/emailService');
 
 /**
  * @desc    Crear nueva referencia
@@ -18,7 +18,6 @@ exports.crearReferencia = async (req, res) => {
       return errorResponse(res, 400, 'Errores de validación', errors.array());
     }
 
-    // ✅ CORRECCIÓN: req.usuario (no req.user)
     if (!req.usuario || !req.usuario.id) {
       return errorResponse(res, 401, 'Usuario no autenticado');
     }
@@ -85,8 +84,6 @@ exports.obtenerReferencias = async (req, res) => {
   try {
     const { candidato_id } = req.query;
 
-    // Si se proporciona candidato_id, filtrar por ese candidato
-    // ADMIN puede ver cualquiera, CANDIDATO solo las suyas
     let where = {};
     
     if (candidato_id) {
@@ -250,7 +247,7 @@ exports.eliminarReferencia = async (req, res) => {
 };
 
 // ============================================
-// 🆕 NUEVOS MÉTODOS S008.2 - VERIFICACIÓN
+// MÉTODOS S008.2 - VERIFICACIÓN
 // ============================================
 
 /**
@@ -262,7 +259,6 @@ exports.enviarVerificacion = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Buscar referencia con datos del candidato
     const referencia = await Referencia.findByPk(id, {
       include: [{
         model: Candidato,
@@ -326,7 +322,6 @@ exports.enviarVerificacion = async (req, res) => {
       });
 
     } catch (emailError) {
-      // Si falla el envío de email, eliminar token
       await tokenVerificacion.destroy();
       console.error('❌ Error al enviar email:', emailError);
       
@@ -348,7 +343,6 @@ exports.verificarReferencia = async (req, res) => {
   try {
     const { token } = req.params;
 
-    // Buscar token
     const tokenVerificacion = await TokenVerificacion.findOne({
       where: { token },
       include: [{
@@ -365,12 +359,10 @@ exports.verificarReferencia = async (req, res) => {
       return errorResponse(res, 404, 'Token de verificación no encontrado o inválido');
     }
 
-    // Validar que el token no esté usado
     if (tokenVerificacion.usado) {
       return errorResponse(res, 400, 'Este link de verificación ya fue utilizado');
     }
 
-    // Validar que el token no esté expirado
     if (tokenVerificacion.estaExpirado()) {
       return errorResponse(res, 400, 'Este link de verificación ha expirado. Solicita uno nuevo al candidato.');
     }
@@ -402,5 +394,300 @@ exports.verificarReferencia = async (req, res) => {
   } catch (error) {
     console.error('❌ Error en verificarReferencia:', error);
     return errorResponse(res, 500, 'Error al verificar referencia', error.message);
+  }
+};
+
+// ============================================
+// 🆕 NUEVOS MÉTODOS S008.3 - CONSULTA EMPRESA
+// ============================================
+
+/**
+ * @desc    Obtener referencias verificadas de un candidato
+ * @route   GET /api/referencias/candidatos/:id/verificadas
+ * @access  Private (EMPRESA)
+ */
+// file: backend/src/controllers/referenciasController.js
+
+// ... (mantener todo el código anterior hasta obtenerReferenciasVerificadas) ...
+
+/**
+ * @desc    Obtener referencias verificadas de un candidato
+ * @route   GET /api/referencias/candidatos/:id/verificadas
+ * @access  Private (EMPRESA)
+ */
+exports.obtenerReferenciasVerificadas = async (req, res) => {
+  try {
+    const { id: candidatoId } = req.params;
+    
+    // Obtener empresa_id del usuario autenticado
+    const empresa = await Empresa.findOne({
+      where: { usuario_id: req.usuario.id }
+    });
+
+    if (!empresa) {
+      return errorResponse(res, 403, 'Solo empresas pueden acceder a este recurso');
+    }
+
+    const empresaId = empresa.id;
+
+    // Validar candidato existe
+    const candidato = await Candidato.findByPk(candidatoId, {
+      include: [{
+        model: Usuario,
+        as: 'usuario',
+        attributes: ['email']
+      }],
+      // ✅ CAMBIAR: Solo campos que existen
+      attributes: ['id', 'nombres', 'apellido_paterno', 'apellido_materno', 'profesion']
+    });
+
+    if (!candidato) {
+      return errorResponse(res, 404, 'Candidato no encontrado');
+    }
+
+    // Obtener referencias verificadas
+    const referencias = await Referencia.findAll({
+      where: {
+        candidato_id: candidatoId,
+        verificado: true
+      },
+      attributes: [
+        'id',
+        'nombre_completo',
+        'cargo',
+        'empresa',
+        'relacion',
+        'email',
+        'telefono',
+        'notas',
+        'fecha_verificacion',
+        'verificado'
+      ],
+      order: [['fecha_verificacion', 'DESC']]
+    });
+
+    if (referencias.length === 0) {
+      return successResponse(res, 200, 'Este candidato no tiene referencias verificadas aún', {
+        candidato: {
+          id: candidato.id,
+          nombre_completo: `${candidato.nombres} ${candidato.apellido_paterno} ${candidato.apellido_materno || ''}`.trim(),
+          profesion: candidato.profesion, // ✅ CAMBIAR
+          email: candidato.usuario.email
+        },
+        referencias: [],
+        total: 0
+      });
+    }
+
+    // Obtener conteo de accesos previos de ESTA empresa para cada referencia
+    const referenciasConAccesos = await Promise.all(
+      referencias.map(async (ref) => {
+        const conteoAccesos = await AccesoReferencia.count({
+          where: {
+            referencia_id: ref.id,
+            empresa_id: empresaId
+          }
+        });
+
+        return {
+          ...ref.toJSON(),
+          accesos_previos: conteoAccesos
+        };
+      })
+    );
+
+    return successResponse(res, 200, `${referenciasConAccesos.length} referencia(s) verificada(s) encontrada(s)`, {
+      candidato: {
+        id: candidato.id,
+        nombre_completo: `${candidato.nombres} ${candidato.apellido_paterno} ${candidato.apellido_materno || ''}`.trim(),
+        profesion: candidato.profesion, // ✅ CAMBIAR
+        email: candidato.usuario.email
+      },
+      referencias: referenciasConAccesos,
+      total: referenciasConAccesos.length
+    });
+
+  } catch (error) {
+    console.error('❌ Error en obtenerReferenciasVerificadas:', error);
+    return errorResponse(res, 500, 'Error al obtener referencias verificadas', error.message);
+  }
+};
+
+/**
+ * @desc    Registrar acceso de empresa a referencia
+ * @route   POST /api/referencias/:id/registrar-acceso
+ * @access  Private (EMPRESA)
+ */
+exports.registrarAcceso = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return errorResponse(res, 400, 'Errores de validación', errors.array());
+    }
+
+    const { id: referenciaId } = req.params;
+    const { motivo, duracion_vista_segundos } = req.body;
+
+    // Obtener empresa del usuario autenticado
+    const empresa = await Empresa.findOne({
+      where: { usuario_id: req.usuario.id },
+      attributes: ['id', 'nombre_comercial', 'razon_social']
+    });
+
+    if (!empresa) {
+      return errorResponse(res, 403, 'Solo empresas pueden acceder a este recurso');
+    }
+
+    const empresaId = empresa.id;
+
+    // Validar motivo
+    if (!motivo || motivo.trim().length < 100) {
+      return errorResponse(res, 400, 'El motivo debe tener mínimo 100 caracteres');
+    }
+
+    if (motivo.length > 1000) {
+      return errorResponse(res, 400, 'El motivo no puede exceder 1000 caracteres');
+    }
+
+    // Validar duración si se proporciona
+    if (duracion_vista_segundos !== undefined) {
+      if (duracion_vista_segundos < 1 || duracion_vista_segundos > 3600) {
+        return errorResponse(res, 400, 'Duración debe estar entre 1 y 3600 segundos');
+      }
+    }
+
+    // Obtener referencia con candidato
+    const referencia = await Referencia.findByPk(referenciaId, {
+      include: [{
+        model: Candidato,
+        as: 'candidato',
+        // ✅ CAMBIAR: Solo campos que existen
+        attributes: ['id', 'nombres', 'apellido_paterno', 'apellido_materno', 'profesion'],
+        include: [{
+          model: Usuario,
+          as: 'usuario',
+          attributes: ['email']
+        }]
+      }],
+      attributes: [
+        'id',
+        'nombre_completo',
+        'cargo',
+        'empresa',
+        'email',
+        'telefono',
+        'verificado',
+        'candidato_id'
+      ]
+    });
+
+    if (!referencia) {
+      return errorResponse(res, 404, 'Referencia no encontrada');
+    }
+
+    // CRÍTICO: Solo referencias verificadas
+    if (!referencia.verificado) {
+      return errorResponse(res, 400, 'Esta referencia no ha sido verificada aún');
+    }
+
+    // Rate limiting: 1 consulta/hora por empresa-referencia
+    const unaHoraAtras = new Date(Date.now() - 60 * 60 * 1000);
+    const accesoReciente = await AccesoReferencia.findOne({
+      where: {
+        empresa_id: empresaId,
+        referencia_id: referenciaId,
+        fecha_acceso: {
+          [Op.gte]: unaHoraAtras
+        }
+      },
+      order: [['fecha_acceso', 'DESC']]
+    });
+
+    if (accesoReciente) {
+      const minutosTranscurridos = Math.floor((Date.now() - accesoReciente.fecha_acceso) / 1000 / 60);
+      const minutosRestantes = 60 - minutosTranscurridos;
+      
+      return errorResponse(
+        res,
+        429,
+        `Ya consultaste esta referencia hace ${minutosTranscurridos} minuto(s). Por favor espera ${minutosRestantes} minuto(s) antes de consultar nuevamente.`
+      );
+    }
+
+    // Obtener IP y user agent
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('user-agent');
+
+    // Crear registro de acceso
+    const acceso = await AccesoReferencia.create({
+      referencia_id: referenciaId,
+      empresa_id: empresaId,
+      candidato_id: referencia.candidato_id,
+      fecha_acceso: new Date(),
+      motivo: motivo.trim(),
+      ip_address: ipAddress,
+      user_agent: userAgent,
+      duracion_vista_segundos: duracion_vista_segundos || null
+    });
+
+    // Enviar notificación a la referencia
+    try {
+      await emailService.enviarEmailNotificacionAcceso({
+        nombreReferencia: referencia.nombre_completo,
+        emailReferencia: referencia.email,
+        nombreEmpresa: empresa.nombre_comercial || empresa.razon_social,
+        nombreCandidato: `${referencia.candidato.nombres} ${referencia.candidato.apellido_paterno} ${referencia.candidato.apellido_materno || ''}`.trim(),
+        cargoCandidato: referencia.candidato.profesion || 'No especificado', // ✅ CAMBIAR
+        fechaConsulta: new Date().toLocaleString('es-BO', { 
+          dateStyle: 'long', 
+          timeStyle: 'short',
+          timeZone: 'America/La_Paz'
+        }),
+        motivo: motivo.trim()
+      });
+
+      console.log(`✅ Notificación enviada a referencia: ${referencia.email}`);
+    } catch (emailError) {
+      console.error('❌ Error enviando notificación a referencia:', emailError);
+    }
+
+    // Notificar al candidato
+    try {
+      await emailService.enviarEmailNotificacionAccesoCandidato({
+        nombreCandidato: referencia.candidato.nombres,
+        emailCandidato: referencia.candidato.usuario.email,
+        nombreEmpresa: empresa.nombre_comercial || empresa.razon_social,
+        nombreReferencia: referencia.nombre_completo,
+        cargoReferencia: referencia.cargo,
+        empresaReferencia: referencia.empresa,
+        fechaConsulta: new Date().toLocaleString('es-BO', { 
+          dateStyle: 'long', 
+          timeStyle: 'short',
+          timeZone: 'America/La_Paz'
+        }),
+        motivo: motivo.trim()
+      });
+
+      console.log(`✅ Notificación enviada a candidato: ${referencia.candidato.usuario.email}`);
+    } catch (emailError) {
+      console.error('❌ Error enviando notificación a candidato:', emailError);
+    }
+
+    return successResponse(res, 201, 'Consulta registrada exitosamente', {
+      mensaje: 'Consulta registrada exitosamente',
+      acceso: {
+        id: acceso.id,
+        fecha_acceso: acceso.fecha_acceso,
+        referencia: {
+          nombre: referencia.nombre_completo,
+          email: referencia.email
+        },
+        notificacion_enviada: true
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error en registrarAcceso:', error);
+    return errorResponse(res, 500, 'Error al registrar acceso a referencia', error.message);
   }
 };

@@ -476,6 +476,83 @@ function calcularCompletitudPerfil(perfil) {
 
   return Math.round((puntos / maxPuntos) * 100);
 }
+/**
+ * 🆕 S008.3 - Obtener candidatos con al menos una referencia verificada
+ * GET /api/candidatos/con-referencias-verificadas
+ * Solo para EMPRESA y ADMIN
+ */
+const obtenerCandidatosConReferenciasVerificadas = async (req, res) => {
+  try {
+    // Solo empresas y admins pueden acceder
+    if (req.usuario.rol !== 'EMPRESA' && req.usuario.rol !== 'ADMIN') {
+      return errorRespuesta(res, 403, 'Solo empresas y administradores pueden acceder');
+    }
+
+    const candidatos = await Candidato.findAll({
+      include: [
+        {
+          model: Usuario,
+          as: 'usuario',
+          attributes: ['email']
+        },
+        {
+          model: Referencia,
+          as: 'referencias',
+          where: { verificado: true },
+          required: true, // INNER JOIN - solo candidatos CON referencias verificadas
+          attributes: ['id', 'verificado', 'fecha_verificacion']
+        }
+      ],
+      attributes: [
+        'id',
+        'nombres',
+        'apellido_paterno',
+        'apellido_materno',
+        'profesion',
+        'nivel_educativo',
+        'estado_laboral',
+        'direccion'
+      ],
+      order: [['id', 'DESC']]
+    });
+
+    // Contar referencias verificadas por candidato
+    const candidatosConConteo = candidatos.map(candidato => {
+      const conteoVerificadas = candidato.referencias ? candidato.referencias.filter(r => r.verificado).length : 0;
+      const ultimaVerificacion = candidato.referencias && candidato.referencias.length > 0
+        ? candidato.referencias.reduce((latest, ref) => {
+            return new Date(ref.fecha_verificacion) > new Date(latest) ? ref.fecha_verificacion : latest;
+          }, candidato.referencias[0].fecha_verificacion)
+        : null;
+
+      return {
+        id: candidato.id,
+        nombres: candidato.nombres,
+        apellido_paterno: candidato.apellido_paterno,
+        apellido_materno: candidato.apellido_materno,
+        nombre_completo: `${candidato.nombres} ${candidato.apellido_paterno} ${candidato.apellido_materno || ''}`.trim(),
+        profesion: candidato.profesion,
+        nivel_educativo: candidato.nivel_educativo,
+        estado_laboral: candidato.estado_laboral,
+        direccion: candidato.direccion,
+        email: candidato.usuario.email,
+        referencias_verificadas: conteoVerificadas,
+        ultima_verificacion: ultimaVerificacion
+      };
+    });
+
+    return exitoRespuesta(
+      res,
+      200,
+      `${candidatosConConteo.length} candidato(s) con referencias verificadas`,
+      candidatosConConteo
+    );
+
+  } catch (error) {
+    console.error('❌ Error en obtenerCandidatosConReferenciasVerificadas:', error);
+    return errorRespuesta(res, 500, 'Error al obtener candidatos', error.message);
+  }
+};
 
 module.exports = {
   obtenerMiPerfil,
@@ -483,5 +560,6 @@ module.exports = {
   obtenerCandidatoPorId,
   actualizarPerfil,
   guardarPerfilCandidato,
-  obtenerPerfilCompleto
+  obtenerPerfilCompleto,
+  obtenerCandidatosConReferenciasVerificadas
 };

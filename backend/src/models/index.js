@@ -12,23 +12,28 @@ const Usuario = require('./Usuario');
 const Empresa = require('./Empresa');
 const Candidato = require('./Candidato');
 
-// Modelos nuevos S006 y S008 (factories que necesitan sequelize)
-let Referencia, TokenVerificacion, Idioma, Certificacion, Documento, ContratoLaboral;
+// Modelos nuevos S006, S008 y S008.3 (factories que necesitan sequelize)
+let Referencia, TokenVerificacion, AccesoReferencia, Idioma, Certificacion, Documento, ContratoLaboral;
 let NotificacionUsuario, RegistroBlockchain, AuditoriaAccion;
 let Educacion, ExperienciaLaboral, Habilidad;
 
-// Inicializar modelos S006 (con try-catch para los que no existan)
+// Inicializar modelos S006
 try {
   Referencia = require('./Referencia')(sequelize);
 } catch (e) {
   console.warn('⚠️  Modelo Referencia no encontrado');
 }
 
-// 🆕 Inicializar modelo TokenVerificacion S008.2
 try {
   TokenVerificacion = require('./TokenVerificacion')(sequelize);
 } catch (e) {
   console.warn('⚠️  Modelo TokenVerificacion no encontrado');
+}
+
+try {
+  AccesoReferencia = require('./AccesoReferencia')(sequelize);
+} catch (e) {
+  console.warn('⚠️  Modelo AccesoReferencia no encontrado');
 }
 
 try {
@@ -92,8 +97,7 @@ try {
 }
 
 // ============================================
-// RELACIONES BASE (solo Usuario-Candidato-Empresa)
-// Estas NO tienen método associate(), se definen aquí
+// RELACIONES BASE
 // ============================================
 
 // Usuario -> Candidato (1:1)
@@ -120,7 +124,6 @@ Empresa.belongsTo(Usuario, {
 
 // ============================================
 // EJECUTAR ASOCIACIONES DE MODELOS FACTORY
-// Cada modelo factory define sus propias relaciones en associate()
 // ============================================
 
 const models = {
@@ -128,7 +131,8 @@ const models = {
   Empresa,
   Candidato,
   Referencia,
-  TokenVerificacion, // 🆕 AGREGADO
+  TokenVerificacion,
+  AccesoReferencia,
   Idioma,
   Certificacion,
   Documento,

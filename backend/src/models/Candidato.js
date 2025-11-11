@@ -1,14 +1,16 @@
 // file: backend/src/models/Candidato.js
+
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 
 const Candidato = sequelize.define('candidatos', {
+  // ... (mantener todos los campos existentes) ...
   id: {
     type: DataTypes.INTEGER.UNSIGNED,  
     primaryKey: true,
     autoIncrement: true
   },
-  usuario_id: { // 👈 FK a usuarios
+  usuario_id: {
     type: DataTypes.INTEGER.UNSIGNED,  
     allowNull: false,
     unique: true,
@@ -17,6 +19,7 @@ const Candidato = sequelize.define('candidatos', {
       key: 'id'
     }
   },
+  // ... (resto de campos) ...
   ci: {
     type: DataTypes.STRING(20),
     allowNull: true,
@@ -135,11 +138,104 @@ const Candidato = sequelize.define('candidatos', {
       max: 100
     }
   }
-  // created_at y updated_at automáticos
 }, {
   tableName: 'candidatos',
   timestamps: true,
   underscored: true
 });
 
-module.exports = Candidato;//.
+// ============================================
+// ASOCIACIONES
+// ============================================
+Candidato.associate = (models) => {
+  // ❌ NO DEFINIR Candidato -> Usuario AQUÍ (ya está en index.js)
+  // Candidato.belongsTo(models.Usuario, {
+  //   foreignKey: 'usuario_id',
+  //   as: 'usuario'
+  // });
+
+  // ✅ SOLO DEFINIR LAS ASOCIACIONES QUE NO ESTÁN EN index.js
+
+  // Candidato -> Referencias (1:N)
+  if (models.Referencia) {
+    Candidato.hasMany(models.Referencia, {
+      foreignKey: 'candidato_id',
+      as: 'referencias',
+      onDelete: 'CASCADE'
+    });
+  }
+
+  // Candidato -> Educacion (1:N)
+  if (models.Educacion) {
+    Candidato.hasMany(models.Educacion, {
+      foreignKey: 'candidato_id',
+      as: 'educacion',
+      onDelete: 'CASCADE'
+    });
+  }
+
+  // Candidato -> ExperienciaLaboral (1:N)
+  if (models.ExperienciaLaboral) {
+    Candidato.hasMany(models.ExperienciaLaboral, {
+      foreignKey: 'candidato_id',
+      as: 'experienciaLaboral',
+      onDelete: 'CASCADE'
+    });
+  }
+
+  // Candidato -> Habilidad (1:N)
+  if (models.Habilidad) {
+    Candidato.hasMany(models.Habilidad, {
+      foreignKey: 'candidato_id',
+      as: 'habilidades',
+      onDelete: 'CASCADE'
+    });
+  }
+
+  // Candidato -> Certificacion (1:N)
+  if (models.Certificacion) {
+    Candidato.hasMany(models.Certificacion, {
+      foreignKey: 'candidato_id',
+      as: 'certificaciones',
+      onDelete: 'CASCADE'
+    });
+  }
+
+  // Candidato -> Idioma (1:N)
+  if (models.Idioma) {
+    Candidato.hasMany(models.Idioma, {
+      foreignKey: 'candidato_id',
+      as: 'idiomas',
+      onDelete: 'CASCADE'
+    });
+  }
+
+  // Candidato -> Documento (1:N)
+  if (models.Documento) {
+    Candidato.hasMany(models.Documento, {
+      foreignKey: 'candidato_id',
+      as: 'documentos',
+      onDelete: 'CASCADE'
+    });
+  }
+
+  // Candidato -> ContratoLaboral (1:N)
+  if (models.ContratoLaboral) {
+    Candidato.hasMany(models.ContratoLaboral, {
+      foreignKey: 'candidato_id',
+      as: 'contratos',
+      onDelete: 'SET NULL'
+    });
+  }
+
+  // Candidato -> AccesoReferencia (1:N)
+  if (models.AccesoReferencia) {
+    Candidato.hasMany(models.AccesoReferencia, {
+      foreignKey: 'candidato_id',
+      as: 'accesos_referencias',
+      onDelete: 'CASCADE'
+    });
+  }
+};
+
+module.exports = Candidato;
