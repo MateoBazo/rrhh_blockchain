@@ -1,4 +1,5 @@
 // file: backend/src/models/Empresa.js
+
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 
@@ -8,7 +9,7 @@ const Empresa = sequelize.define('empresas', {
     primaryKey: true,
     autoIncrement: true
   },
-  usuario_id: { // 👈 FK a usuarios
+  usuario_id: {
     type: DataTypes.INTEGER.UNSIGNED,  
     allowNull: true,
     references: {
@@ -79,11 +80,35 @@ const Empresa = sequelize.define('empresas', {
     type: DataTypes.DATE,
     allowNull: true
   }
-  // created_at y updated_at automáticos
 }, {
   tableName: 'empresas',
   timestamps: true,
   underscored: true
 });
 
-module.exports = Empresa;//.
+// ============================================
+// ASOCIACIONES
+// ============================================
+Empresa.associate = (models) => {
+  // ❌ NO DEFINIR Empresa -> Usuario AQUÍ (ya está en index.js)
+  
+  // 🆕 Empresa → Vacantes (1:N)
+  if (models.Vacante) {
+    Empresa.hasMany(models.Vacante, {
+      foreignKey: 'empresa_id',
+      as: 'vacantes',
+      onDelete: 'CASCADE'
+    });
+  }
+
+  // 🆕 Empresa → HistorialLaboral (1:N)
+  if (models.HistorialLaboral) {
+    Empresa.hasMany(models.HistorialLaboral, {
+      foreignKey: 'empresa_id',
+      as: 'historialLaboral',
+      onDelete: 'SET NULL'
+    });
+  }
+};
+
+module.exports = Empresa;

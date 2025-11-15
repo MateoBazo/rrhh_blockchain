@@ -124,6 +124,9 @@ app.use('/api/notificaciones', require('./routes/notificacionesRoutes'));
 app.use('/api/blockchain', require('./routes/blockchainRoutes'));
 app.use('/api/analytics', require('./routes/analyticsRoutes'));
 
+// 🆕 S009 - Historial Laboral
+app.use('/api/historial-laboral', require('./routes/historialLaboralRoutes'));
+
 // ==========================================
 // MANEJO DE ERRORES
 // ==========================================

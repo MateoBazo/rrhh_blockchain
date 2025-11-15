@@ -4,20 +4,23 @@ const { sequelize } = require('../config/database');
 const { Sequelize } = require('sequelize');
 
 // ============================================
-// IMPORTAR E INICIALIZAR MODELOS
+// MODELOS BASE
 // ============================================
-
-// Modelos base (ya inicializados directamente)
 const Usuario = require('./Usuario');
 const Empresa = require('./Empresa');
 const Candidato = require('./Candidato');
 
-// Modelos nuevos S006, S008 y S008.3 (factories que necesitan sequelize)
-let Referencia, TokenVerificacion, AccesoReferencia, Idioma, Certificacion, Documento, ContratoLaboral;
+// ============================================
+// MODELOS FACTORY S006-S009
+// ============================================
+let Referencia, TokenVerificacion, AccesoReferencia;
+let Idioma, Certificacion, Documento, ContratoLaboral;
 let NotificacionUsuario, RegistroBlockchain, AuditoriaAccion;
 let Educacion, ExperienciaLaboral, Habilidad;
+let HabilidadCatalogo, CandidatoHabilidad, HistorialLaboral;
+let Vacante, VacanteHabilidad, Postulacion; // 🆕 S009.2
 
-// Inicializar modelos S006
+// Inicializar modelos S006-S008
 try {
   Referencia = require('./Referencia')(sequelize);
 } catch (e) {
@@ -96,6 +99,50 @@ try {
   console.warn('⚠️  Modelo Habilidad no encontrado');
 }
 
+// Modelos S009.1
+try {
+  HabilidadCatalogo = require('./HabilidadCatalogo')(sequelize);
+  console.log('✅ Modelo HabilidadCatalogo cargado');
+} catch (e) {
+  console.warn('⚠️  Modelo HabilidadCatalogo no encontrado:', e.message);
+}
+
+try {
+  CandidatoHabilidad = require('./CandidatoHabilidad')(sequelize);
+  console.log('✅ Modelo CandidatoHabilidad cargado');
+} catch (e) {
+  console.warn('⚠️  Modelo CandidatoHabilidad no encontrado:', e.message);
+}
+
+try {
+  HistorialLaboral = require('./HistorialLaboral')(sequelize);
+  console.log('✅ Modelo HistorialLaboral cargado');
+} catch (e) {
+  console.warn('⚠️  Modelo HistorialLaboral no encontrado:', e.message);
+}
+
+// 🆕 Modelos S009.2
+try {
+  Vacante = require('./Vacante')(sequelize);
+  console.log('✅ Modelo Vacante cargado');
+} catch (e) {
+  console.warn('⚠️  Modelo Vacante no encontrado:', e.message);
+}
+
+try {
+  VacanteHabilidad = require('./VacanteHabilidad')(sequelize);
+  console.log('✅ Modelo VacanteHabilidad cargado');
+} catch (e) {
+  console.warn('⚠️  Modelo VacanteHabilidad no encontrado:', e.message);
+}
+
+try {
+  Postulacion = require('./Postulacion')(sequelize);
+  console.log('✅ Modelo Postulacion cargado');
+} catch (e) {
+  console.warn('⚠️  Modelo Postulacion no encontrado:', e.message);
+}
+
 // ============================================
 // RELACIONES BASE
 // ============================================
@@ -123,7 +170,7 @@ Empresa.belongsTo(Usuario, {
 });
 
 // ============================================
-// EJECUTAR ASOCIACIONES DE MODELOS FACTORY
+// EJECUTAR ASOCIACIONES
 // ============================================
 
 const models = {
@@ -142,14 +189,21 @@ const models = {
   AuditoriaAccion,
   Educacion,
   ExperienciaLaboral,
-  Habilidad
+  Habilidad,
+  HabilidadCatalogo,
+  CandidatoHabilidad,
+  HistorialLaboral,
+  Vacante,           // 🆕 S009.2
+  VacanteHabilidad,  // 🆕 S009.2
+  Postulacion        // 🆕 S009.2
 };
 
-// Ejecutar associate() para cada modelo que lo tenga
+// Ejecutar associate()
 Object.keys(models).forEach(modelName => {
   if (models[modelName] && typeof models[modelName].associate === 'function') {
     try {
       models[modelName].associate(models);
+      console.log(`✅ Asociaciones de ${modelName} ejecutadas`);
     } catch (error) {
       console.error(`❌ Error al asociar modelo ${modelName}:`, error.message);
     }

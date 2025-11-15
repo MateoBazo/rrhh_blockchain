@@ -4,7 +4,6 @@ const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 
 const Candidato = sequelize.define('candidatos', {
-  // ... (mantener todos los campos existentes) ...
   id: {
     type: DataTypes.INTEGER.UNSIGNED,  
     primaryKey: true,
@@ -19,7 +18,6 @@ const Candidato = sequelize.define('candidatos', {
       key: 'id'
     }
   },
-  // ... (resto de campos) ...
   ci: {
     type: DataTypes.STRING(20),
     allowNull: true,
@@ -149,12 +147,6 @@ const Candidato = sequelize.define('candidatos', {
 // ============================================
 Candidato.associate = (models) => {
   // ❌ NO DEFINIR Candidato -> Usuario AQUÍ (ya está en index.js)
-  // Candidato.belongsTo(models.Usuario, {
-  //   foreignKey: 'usuario_id',
-  //   as: 'usuario'
-  // });
-
-  // ✅ SOLO DEFINIR LAS ASOCIACIONES QUE NO ESTÁN EN index.js
 
   // Candidato -> Referencias (1:N)
   if (models.Referencia) {
@@ -183,7 +175,7 @@ Candidato.associate = (models) => {
     });
   }
 
-  // Candidato -> Habilidad (1:N)
+  // Candidato -> Habilidad (1:N) - Habilidades antiguas
   if (models.Habilidad) {
     Candidato.hasMany(models.Habilidad, {
       foreignKey: 'candidato_id',
@@ -233,6 +225,43 @@ Candidato.associate = (models) => {
     Candidato.hasMany(models.AccesoReferencia, {
       foreignKey: 'candidato_id',
       as: 'accesos_referencias',
+      onDelete: 'CASCADE'
+    });
+  }
+
+  // 🆕 S009.1 - Candidato -> HistorialLaboral (1:N)
+  if (models.HistorialLaboral) {
+    Candidato.hasMany(models.HistorialLaboral, {
+      foreignKey: 'candidato_id',
+      as: 'historialLaboral',
+      onDelete: 'CASCADE'
+    });
+  }
+
+  // 🆕 S009.1 - Candidato -> CandidatoHabilidad (1:N)
+  if (models.CandidatoHabilidad) {
+    Candidato.hasMany(models.CandidatoHabilidad, {
+      foreignKey: 'candidato_id',
+      as: 'candidatoHabilidades',
+      onDelete: 'CASCADE'
+    });
+  }
+
+  // 🆕 S009.1 - Candidato <-> HabilidadCatalogo (N:M)
+  if (models.HabilidadCatalogo) {
+    Candidato.belongsToMany(models.HabilidadCatalogo, {
+      through: 'candidato_habilidades',
+      foreignKey: 'candidato_id',
+      otherKey: 'habilidad_id',
+      as: 'habilidadesCatalogo'
+    });
+  }
+
+  // 🆕 S009.2 - Candidato → Postulaciones (1:N)
+  if (models.Postulacion) {
+    Candidato.hasMany(models.Postulacion, {
+      foreignKey: 'candidato_id',
+      as: 'postulaciones',
       onDelete: 'CASCADE'
     });
   }
