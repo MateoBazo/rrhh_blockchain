@@ -105,6 +105,7 @@ const uploadRoutes = require('./routes/uploadRoutes');
 const educacionRoutes = require('./routes/educacion');
 const experienciaRoutes = require('./routes/experiencia');
 const habilidadRoutes = require('./routes/habilidad');
+const vacanteHabilidadesRoutes = require('./routes/vacanteHabilidadesRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/empresas', empresaRoutes);
@@ -127,6 +128,7 @@ app.use('/api/analytics', require('./routes/analyticsRoutes'));
 // 🆕 S009 - Historial Laboral
 app.use('/api/historial-laboral', require('./routes/historialLaboralRoutes'));
 app.use('/api/vacantes', require('./routes/vacantesRoutes'));
+app.use('/api/vacantes', vacanteHabilidadesRoutes);
 // ==========================================
 // MANEJO DE ERRORES
 // ==========================================
