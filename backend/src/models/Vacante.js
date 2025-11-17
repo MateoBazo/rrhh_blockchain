@@ -136,7 +136,8 @@ module.exports = (sequelize) => {
     jornada: {
       type: DataTypes.ENUM('tiempo_completo', 'medio_tiempo', 'por_horas'),
       allowNull: true,
-      defaultValue: 'tiempo_completo'
+      defaultValue: 'tiempo_completo',
+      field: 'jornada_laboral'
     },
     
     // ========================================
