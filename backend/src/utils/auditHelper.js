@@ -15,7 +15,7 @@ const registrarAuditoria = async (datos) => {
     const {
       usuario_id,
       accion,
-      entidad,
+      entidad,        // ← nombre tabla
       entidad_id,
       datos_adicionales = {},
       ip_address = null,
@@ -30,12 +30,11 @@ const registrarAuditoria = async (datos) => {
     const auditoria = await AuditoriaAccion.create({
       usuario_id,
       accion,
-      entidad,
-      entidad_id,
-      datos_adicionales,
+      entidad_tipo: entidad,  // ✅ MAPEAR entidad → entidad_tipo
+      entidad_id: entidad_id ? String(entidad_id) : null,
+      datos_adicionales: JSON.stringify(datos_adicionales),
       ip_address,
-      user_agent,
-      timestamp: new Date()
+      user_agent
     });
 
     console.log(`✅ Auditoría: ${accion} en ${entidad} #${entidad_id}`);
@@ -48,13 +47,13 @@ const registrarAuditoria = async (datos) => {
 };
 
 /**
- * Extraer IP real del request (considera proxies/load balancers)
+ * Extraer IP real del request
  */
 const obtenerIPReal = (req) => {
   return req.headers['x-forwarded-for']?.split(',')[0]?.trim() 
     || req.headers['x-real-ip'] 
-    || req.connection.remoteAddress 
-    || req.socket.remoteAddress 
+    || req.connection?.remoteAddress 
+    || req.socket?.remoteAddress 
     || req.ip
     || 'unknown';
 };

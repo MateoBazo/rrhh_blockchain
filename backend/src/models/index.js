@@ -166,7 +166,7 @@ Usuario.hasMany(Empresa, {
 });
 Empresa.belongsTo(Usuario, {
   foreignKey: 'usuario_id',
-  as: 'usuario_admin'
+  as: 'usuario'
 });
 
 // ============================================

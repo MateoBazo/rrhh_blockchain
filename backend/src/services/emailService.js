@@ -8,6 +8,7 @@
  * 
  * S008.2: Verificación de referencias
  * S008.3: Notificaciones de consulta empresa
+ * S009.7: Notificaciones postulaciones
  */
 
 const nodemailer = require('nodemailer');
@@ -202,6 +203,670 @@ class EmailService {
       throw error;
     }
   }
+
+  // ========================================
+  // S009.7: EMAILS POSTULACIONES
+  // ========================================
+
+  /**
+   * Enviar email a empresa cuando recibe nueva postulación
+   * S009.7
+   */
+  async enviarEmailNuevaPostulacion(data) {
+    if (!this.transporter) {
+      console.warn('⚠️  EmailService no configurado. Email no enviado.');
+      return false;
+    }
+
+    const {
+      empresaEmail,
+      empresaNombre,
+      candidatoNombre,
+      vacanteId,
+      vacanteTitulo,
+      score,
+      candidatoUbicacion,
+      candidatoExperiencia,
+      fechaPostulacion,
+      urlDetalle
+    } = data;
+
+    const htmlEmail = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; padding: 30px 20px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+    .content { padding: 30px 20px; }
+    .score-badge { display: inline-block; background: #10b981; color: white; padding: 10px 20px; border-radius: 25px; font-weight: bold; font-size: 22px; margin: 15px 0; }
+    .info-box { background: #f9fafb; border-left: 4px solid #667eea; padding: 20px; margin: 20px 0; border-radius: 4px; }
+    .info-box p { margin: 8px 0; }
+    .button { display: inline-block; background: #667eea; color: #ffffff !important; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 20px 0; }
+    .tip { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; font-size: 14px; }
+    .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎯 Nueva Postulación Recibida</h1>
+    </div>
+    <div class="content">
+      <p>Hola <strong>${empresaNombre}</strong>,</p>
+      <p>Has recibido una nueva postulación para <strong>${vacanteTitulo}</strong>.</p>
+      
+      <div style="text-align: center;">
+        <p><strong>📊 Score de Compatibilidad:</strong></p>
+        <span class="score-badge">${score}/100</span>
+      </div>
+
+      <div class="info-box">
+        <p><strong>👤 Candidato:</strong> ${candidatoNombre}</p>
+        <p><strong>📅 Fecha:</strong> ${fechaPostulacion}</p>
+        <p><strong>📍 Ubicación:</strong> ${candidatoUbicacion}</p>
+        <p><strong>💼 Experiencia:</strong> ${candidatoExperiencia} años</p>
+      </div>
+
+      <p>El algoritmo de matching evaluó automáticamente la compatibilidad con tus requisitos.</p>
+
+      <div style="text-align: center;">
+        <a href="${urlDetalle}" class="button">Ver Perfil Completo y Desglose</a>
+      </div>
+
+      <div class="tip">
+        💡 <strong>Tip:</strong> Candidatos con score >70 tienen alta compatibilidad técnica. 
+        Revisa el desglose para identificar fortalezas y áreas de desarrollo.
+      </div>
+    </div>
+    <div class="footer">
+      <p>Sistema RRHH Blockchain - Gestión Inteligente de Talento</p>
+      <p><a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/configuracion/notificaciones" style="color: #667eea;">Gestionar notificaciones</a></p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    try {
+      const mailOptions = {
+        from: `"${process.env.EMAIL_FROM_NAME || 'Sistema RRHH Blockchain'}" <${process.env.SMTP_USER}>`,
+        to: empresaEmail,
+        subject: `🎯 Nueva postulación: ${candidatoNombre} - Score ${score}/100`,
+        html: htmlEmail
+      };
+
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log(`📧 Email nueva postulación enviado a ${empresaEmail}`);
+      return true;
+    } catch (error) {
+      console.error('❌ Error enviando email nueva postulación:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Enviar confirmación a candidato al postular
+   * S009.7
+   */
+  async enviarEmailConfirmacionPostulacion(data) {
+    if (!this.transporter) {
+      console.warn('⚠️  EmailService no configurado. Email no enviado.');
+      return false;
+    }
+
+    const {
+      candidatoEmail,
+      candidatoNombre,
+      vacanteTitulo,
+      empresaNombre,
+      score,
+      scoreHabilidades,
+      scoreExperiencia,
+      scoreEducacion,
+      scoreUbicacion,
+      vacanteModalidad,
+      vacanteUbicacion,
+      fechaPostulacion,
+      urlDetalle
+    } = data;
+
+    const htmlEmail = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; padding: 30px 20px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+    .content { padding: 30px 20px; }
+    .score-badge { display: inline-block; background: #667eea; color: white; padding: 10px 20px; border-radius: 25px; font-weight: bold; font-size: 22px; margin: 15px 0; }
+    .info-box { background: #f9fafb; border-left: 4px solid #10b981; padding: 20px; margin: 20px 0; border-radius: 4px; }
+    .desglose { background: white; border: 1px solid #e5e7eb; border-radius: 6px; padding: 15px; margin: 15px 0; }
+    .desglose-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
+    .desglose-item:last-child { border-bottom: none; }
+    .button { display: inline-block; background: #10b981; color: #ffffff !important; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 20px 0; }
+    .tip { background: #dbeafe; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; font-size: 14px; }
+    .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>✅ Postulación Enviada Exitosamente</h1>
+    </div>
+    <div class="content">
+      <p>Hola <strong>${candidatoNombre}</strong>,</p>
+      <p>Tu postulación para <strong>${vacanteTitulo}</strong> en <strong>${empresaNombre}</strong> ha sido recibida correctamente.</p>
+
+      <div style="text-align: center;">
+        <p><strong>📊 Tu Score de Compatibilidad:</strong></p>
+        <span class="score-badge">${score}/100</span>
+      </div>
+
+      <div class="info-box">
+        <p><strong>📅 Fecha de postulación:</strong> ${fechaPostulacion}</p>
+        <p><strong>🏢 Modalidad:</strong> ${vacanteModalidad}</p>
+        <p><strong>📍 Ubicación:</strong> ${vacanteUbicacion}</p>
+      </div>
+
+      <p><strong>Desglose de tu score:</strong></p>
+      <div class="desglose">
+        <div class="desglose-item">
+          <span>💻 Habilidades técnicas</span>
+          <strong>${scoreHabilidades}/40</strong>
+        </div>
+        <div class="desglose-item">
+          <span>💼 Experiencia laboral</span>
+          <strong>${scoreExperiencia}/25</strong>
+        </div>
+        <div class="desglose-item">
+          <span>🎓 Educación</span>
+          <strong>${scoreEducacion}/20</strong>
+        </div>
+        <div class="desglose-item">
+          <span>📍 Ubicación</span>
+          <strong>${scoreUbicacion}/15</strong>
+        </div>
+      </div>
+
+      <div style="text-align: center;">
+        <a href="${urlDetalle}" class="button">Ver Desglose Completo</a>
+      </div>
+
+      <div class="tip">
+        📬 La empresa revisará tu perfil próximamente. Te notificaremos cualquier actualización del estado de tu postulación.
+      </div>
+
+      <div class="tip" style="background: #fef3c7; border-color: #f59e0b;">
+        💡 <strong>Tip:</strong> Mientras esperas, mejora tu perfil agregando certificaciones o actualizando experiencia para futuras postulaciones.
+      </div>
+    </div>
+    <div class="footer">
+      <p>Sistema RRHH Blockchain</p>
+      <p><a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/mis-postulaciones" style="color: #10b981;">Ver todas mis postulaciones</a></p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    try {
+      const mailOptions = {
+        from: `"${process.env.EMAIL_FROM_NAME || 'Sistema RRHH Blockchain'}" <${process.env.SMTP_USER}>`,
+        to: candidatoEmail,
+        subject: `✅ Postulación confirmada: ${vacanteTitulo} - Score ${score}/100`,
+        html: htmlEmail
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      console.log(`📧 Email confirmación enviado a ${candidatoEmail}`);
+      return true;
+    } catch (error) {
+      console.error('❌ Error enviando confirmación:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Enviar email cambio de estado (genérico)
+   * S009.7
+   */
+  async enviarEmailCambioEstado(data) {
+    if (!this.transporter) {
+      console.warn('⚠️  EmailService no configurado. Email no enviado.');
+      return false;
+    }
+
+    const {
+      candidatoEmail,
+      candidatoNombre,
+      vacanteTitulo,
+      empresaNombre,
+      estadoAnterior,
+      estadoNuevo,
+      mensajeEstado,
+      urlPostulacion
+    } = data;
+
+    const estadosEmojis = {
+      'postulado': '📝',
+      'revisado': '👀',
+      'preseleccionado': '⭐',
+      'entrevista': '🎤',
+      'contratado': '🎉',
+      'rechazado': '❌'
+    };
+
+    const emojiNuevo = estadosEmojis[estadoNuevo] || '📢';
+
+    const htmlEmail = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background: #f4f4f4; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 20px auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .header { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: #fff; padding: 30px 20px; text-align: center; }
+    .content { padding: 30px 20px; }
+    .info-box { background: #f9fafb; border-left: 4px solid #3b82f6; padding: 20px; margin: 20px 0; border-radius: 4px; }
+    .estado-badge { display: inline-block; background: #3b82f6; color: white; padding: 8px 16px; border-radius: 20px; font-weight: 600; }
+    .button { display: inline-block; background: #3b82f6; color: #fff !important; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 20px 0; }
+    .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>${emojiNuevo} Actualización de Tu Postulación</h1>
+    </div>
+    <div class="content">
+      <p>Hola <strong>${candidatoNombre}</strong>,</p>
+      <p>Tu postulación para <strong>${vacanteTitulo}</strong> en <strong>${empresaNombre}</strong> ha sido actualizada.</p>
+
+      <div class="info-box">
+        <p><strong>Estado anterior:</strong> ${estadoAnterior}</p>
+        <p><strong>Estado actual:</strong> <span class="estado-badge">${estadoNuevo}</span></p>
+      </div>
+
+      <div style="background: #f0f9ff; padding: 20px; border-radius: 6px; margin: 20px 0;">
+        ${mensajeEstado}
+      </div>
+
+      <div style="text-align: center;">
+        <a href="${urlPostulacion}" class="button">Ver Detalles</a>
+      </div>
+    </div>
+    <div class="footer">
+      <p>Sistema RRHH Blockchain</p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    try {
+      const mailOptions = {
+        from: `"${process.env.EMAIL_FROM_NAME || 'Sistema RRHH Blockchain'}" <${process.env.SMTP_USER}>`,
+        to: candidatoEmail,
+        subject: `${emojiNuevo} Actualización: ${vacanteTitulo} - ${estadoNuevo}`,
+        html: htmlEmail
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      console.log(`📧 Email cambio estado enviado a ${candidatoEmail}`);
+      return true;
+    } catch (error) {
+      console.error('❌ Error enviando cambio estado:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Enviar email candidato preseleccionado
+   * S009.7
+   */
+  async enviarEmailPreseleccionado(data) {
+    if (!this.transporter) {
+      console.warn('⚠️  EmailService no configurado. Email no enviado.');
+      return false;
+    }
+
+    const {
+      candidatoEmail,
+      candidatoNombre,
+      vacanteTitulo,
+      empresaNombre,
+      score,
+      urlPostulacion
+    } = data;
+
+    const htmlEmail = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background: #f4f4f4; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 20px auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+    .header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #fff; padding: 40px 20px; text-align: center; }
+    .header h1 { margin: 0; font-size: 28px; font-weight: 700; }
+    .content { padding: 40px 25px; }
+    .congrats-box { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border: 2px solid #f59e0b; padding: 25px; margin: 25px 0; border-radius: 8px; text-align: center; }
+    .congrats-box h2 { color: #92400e; margin: 0 0 10px 0; font-size: 24px; }
+    .info-box { background: #f9fafb; border-left: 4px solid #f59e0b; padding: 20px; margin: 20px 0; border-radius: 4px; }
+    .next-steps { background: #fff; border: 2px solid #e5e7eb; padding: 20px; margin: 20px 0; border-radius: 8px; }
+    .next-steps h3 { color: #374151; margin-top: 0; }
+    .next-steps ul { padding-left: 20px; }
+    .next-steps li { margin: 10px 0; color: #4b5563; }
+    .button { display: inline-block; background: #f59e0b; color: #fff !important; padding: 16px 40px; text-decoration: none; border-radius: 6px; font-weight: 700; margin: 20px 0; font-size: 16px; }
+    .button:hover { background: #d97706; }
+    .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>⭐ ¡FELICITACIONES!</h1>
+    </div>
+    <div class="content">
+      <div class="congrats-box">
+        <h2>🎉 Has sido preseleccionado/a</h2>
+        <p style="font-size: 16px; color: #92400e; margin: 10px 0;">Estás entre los finalistas para <strong>${vacanteTitulo}</strong></p>
+      </div>
+
+      <p style="font-size: 16px;">Hola <strong>${candidatoNombre}</strong>,</p>
+      
+      <p>Nos complace informarte que <strong>${empresaNombre}</strong> te ha seleccionado como uno de los candidatos finalistas para la posición de <strong>${vacanteTitulo}</strong>.</p>
+
+      <div class="info-box">
+        <p><strong>📊 Tu Score de Compatibilidad:</strong> ${score}/100</p>
+        <p><strong>🏆 Estado:</strong> <span style="color: #d97706; font-weight: bold;">PRESELECCIONADO</span></p>
+        <p><strong>🔥 Eres parte del top de candidatos</strong></p>
+      </div>
+
+      <div class="next-steps">
+        <h3>📋 Próximos Pasos:</h3>
+        <ul>
+          <li><strong>Mantente atento:</strong> La empresa podría contactarte pronto para agendar entrevista</li>
+          <li><strong>Revisa tu email:</strong> Recibirás notificaciones de cualquier actualización</li>
+          <li><strong>Prepárate:</strong> Investiga sobre la empresa y repasa tus habilidades técnicas</li>
+          <li><strong>Disponibilidad:</strong> Asegúrate de estar disponible en los próximos días</li>
+        </ul>
+      </div>
+
+      <div style="text-align: center;">
+        <a href="${urlPostulacion}" class="button">Ver Estado de Mi Postulación</a>
+      </div>
+
+      <div style="background: #dbeafe; border-left: 4px solid #3b82f6; padding: 15px; margin: 25px 0; border-radius: 4px;">
+        <p style="margin: 0; color: #1e40af;"><strong>💡 Consejo:</strong> Este es un momento crucial. Mantén tu perfil actualizado y responde rápido a cualquier comunicación de la empresa.</p>
+      </div>
+
+      <p style="margin-top: 30px; color: #6b7280; text-align: center;">¡Te deseamos mucho éxito en la siguiente fase del proceso!</p>
+    </div>
+    <div class="footer">
+      <p><strong>Sistema RRHH Blockchain</strong></p>
+      <p>Conectando talento con oportunidades</p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    try {
+      const mailOptions = {
+        from: `"${process.env.EMAIL_FROM_NAME || 'Sistema RRHH Blockchain'}" <${process.env.SMTP_USER}>`,
+        to: candidatoEmail,
+        subject: `⭐ ¡PRESELECCIONADO! ${vacanteTitulo} en ${empresaNombre}`,
+        html: htmlEmail
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      console.log(`📧 Email preselección enviado a ${candidatoEmail}`);
+      return true;
+    } catch (error) {
+      console.error('❌ Error enviando email preselección:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Enviar email candidato rechazado (constructivo)
+   * S009.7
+   */
+  async enviarEmailRechazado(data) {
+    if (!this.transporter) {
+      console.warn('⚠️  EmailService no configurado. Email no enviado.');
+      return false;
+    }
+
+    const {
+      candidatoEmail,
+      candidatoNombre,
+      vacanteTitulo,
+      empresaNombre,
+      motivoOpcional
+    } = data;
+
+    const htmlEmail = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background: #f4f4f4; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 20px auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .header { background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); color: #fff; padding: 30px 20px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+    .content { padding: 35px 25px; }
+    .info-box { background: #f9fafb; border-left: 4px solid #6b7280; padding: 20px; margin: 20px 0; border-radius: 4px; }
+    .feedback-box { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 20px; margin: 20px 0; border-radius: 4px; }
+    .encouragement { background: #dbeafe; border-left: 4px solid #3b82f6; padding: 20px; margin: 25px 0; border-radius: 4px; }
+    .tips { background: #fff; border: 2px solid #e5e7eb; padding: 20px; margin: 20px 0; border-radius: 8px; }
+    .tips h3 { color: #374151; margin-top: 0; }
+    .tips ul { padding-left: 20px; }
+    .tips li { margin: 10px 0; color: #4b5563; }
+    .button { display: inline-block; background: #3b82f6; color: #fff !important; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 20px 0; }
+    .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Actualización de Tu Postulación</h1>
+    </div>
+    <div class="content">
+      <p>Hola <strong>${candidatoNombre}</strong>,</p>
+      
+      <p>Agradecemos sinceramente tu interés en la posición de <strong>${vacanteTitulo}</strong> en <strong>${empresaNombre}</strong> y el tiempo que dedicaste a tu postulación.</p>
+
+      <div class="info-box">
+        <p>Después de una cuidadosa evaluación de todos los candidatos, hemos decidido continuar el proceso con otros perfiles que se ajustan más específicamente a nuestras necesidades actuales para este rol.</p>
+      </div>
+
+      ${motivoOpcional ? `
+      <div class="feedback-box">
+        <p><strong>📝 Feedback del proceso:</strong></p>
+        <p style="font-style: italic;">${motivoOpcional}</p>
+      </div>
+      ` : ''}
+
+      <div class="encouragement">
+        <p style="margin: 0; color: #1e40af;"><strong>💪 No te desanimes:</strong> Un rechazo no define tu valor profesional. Cada proceso de selección tiene requisitos muy específicos y a veces es simplemente una cuestión de timing o fit particular con el equipo.</p>
+      </div>
+
+      <div class="tips">
+        <h3>🚀 Consejos para Futuras Postulaciones:</h3>
+        <ul>
+          <li><strong>Continúa desarrollando tus habilidades:</strong> Invierte en capacitación y certificaciones relevantes</li>
+          <li><strong>Actualiza tu perfil:</strong> Mantén tu experiencia y proyectos al día en la plataforma</li>
+          <li><strong>Networking:</strong> Conecta con profesionales de tu industria</li>
+          <li><strong>Practica entrevistas:</strong> La práctica mejora significativamente el desempeño</li>
+          <li><strong>No dejes de postular:</strong> Cada aplicación es una oportunidad de aprendizaje</li>
+        </ul>
+      </div>
+
+      <p style="text-align: center; margin: 30px 0;">
+        <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/vacantes" class="button">Explorar Otras Oportunidades</a>
+      </p>
+
+      <p style="margin-top: 30px; color: #6b7280;">Te deseamos mucho éxito en tu búsqueda profesional. Estamos seguros de que encontrarás la oportunidad perfecta para ti.</p>
+
+      <p style="margin-top: 20px;"><strong>¡Gracias por confiar en RRHH Blockchain!</strong></p>
+    </div>
+    <div class="footer">
+      <p><strong>Sistema RRHH Blockchain</strong></p>
+      <p>Construyendo el futuro del reclutamiento</p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    try {
+      const mailOptions = {
+        from: `"${process.env.EMAIL_FROM_NAME || 'Sistema RRHH Blockchain'}" <${process.env.SMTP_USER}>`,
+        to: candidatoEmail,
+        subject: `Actualización: ${vacanteTitulo} en ${empresaNombre}`,
+        html: htmlEmail
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      console.log(`📧 Email rechazo enviado a ${candidatoEmail}`);
+      return true;
+    } catch (error) {
+      console.error('❌ Error enviando email rechazo:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Enviar email candidato contratado (bienvenida)
+   * S009.7
+   */
+  async enviarEmailContratado(data) {
+    if (!this.transporter) {
+      console.warn('⚠️  EmailService no configurado. Email no enviado.');
+      return false;
+    }
+
+    const {
+      candidatoEmail,
+      candidatoNombre,
+      vacanteTitulo,
+      empresaNombre,
+      urlPostulacion
+    } = data;
+
+    const htmlEmail = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background: #f4f4f4; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 20px auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+    .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #fff; padding: 50px 20px; text-align: center; }
+    .header h1 { margin: 0; font-size: 32px; font-weight: 700; }
+    .content { padding: 40px 25px; }
+    .celebration { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); border: 3px solid #10b981; padding: 30px; margin: 25px 0; border-radius: 12px; text-align: center; }
+    .celebration h2 { color: #065f46; margin: 0 0 15px 0; font-size: 28px; }
+    .celebration p { color: #047857; font-size: 18px; margin: 5px 0; }
+    .info-box { background: #f9fafb; border-left: 4px solid #10b981; padding: 20px; margin: 20px 0; border-radius: 4px; }
+    .next-steps { background: #fff; border: 2px solid #e5e7eb; padding: 25px; margin: 20px 0; border-radius: 8px; }
+    .next-steps h3 { color: #374151; margin-top: 0; }
+    .next-steps ul { padding-left: 20px; }
+    .next-steps li { margin: 12px 0; color: #4b5563; }
+    .button { display: inline-block; background: #10b981; color: #fff !important; padding: 16px 40px; text-decoration: none; border-radius: 6px; font-weight: 700; margin: 20px 0; font-size: 16px; }
+    .button:hover { background: #059669; }
+    .congrats-note { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 20px; margin: 25px 0; border-radius: 4px; }
+    .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎉 ¡CONTRATADO!</h1>
+    </div>
+    <div class="content">
+      <div class="celebration">
+        <h2>🎊 ¡FELICITACIONES ${candidatoNombre}! 🎊</h2>
+        <p>Has sido seleccionado/a para unirte al equipo de</p>
+        <p style="font-size: 24px; font-weight: bold; color: #065f46;">${empresaNombre}</p>
+      </div>
+
+      <p style="font-size: 16px;">Estimado/a <strong>${candidatoNombre}</strong>,</p>
+      
+      <p>Es un placer informarte que has sido <strong>oficialmente contratado/a</strong> para la posición de <strong>${vacanteTitulo}</strong> en <strong>${empresaNombre}</strong>.</p>
+
+      <div class="info-box">
+        <p><strong>✅ Posición:</strong> ${vacanteTitulo}</p>
+        <p><strong>🏢 Empresa:</strong> ${empresaNombre}</p>
+        <p><strong>📅 Estado:</strong> <span style="color: #10b981; font-weight: bold;">CONTRATADO</span></p>
+      </div>
+
+      <div class="next-steps">
+        <h3>📋 Próximos Pasos:</h3>
+        <ul>
+          <li><strong>Contacto directo:</strong> La empresa se pondrá en contacto contigo pronto con los detalles del contrato y fecha de inicio</li>
+          <li><strong>Documentación:</strong> Prepara tu documentación personal (CI, certificados, referencias)</li>
+          <li><strong>Onboarding:</strong> Recibirás información sobre el proceso de integración</li>
+          <li><strong>Primer día:</strong> Te compartirán detalles sobre ubicación, horario y equipo</li>
+        </ul>
+      </div>
+
+      <div style="text-align: center;">
+        <a href="${urlPostulacion}" class="button">Ver Detalles de Mi Contratación</a>
+      </div>
+
+      <div class="congrats-note">
+        <p style="margin: 0;"><strong>🌟 ¡Bienvenido/a al equipo!</strong></p>
+        <p style="margin: 10px 0 0 0;">Tu talento y esfuerzo han dado frutos. Estamos emocionados de que inicies esta nueva etapa profesional.</p>
+      </div>
+
+      <p style="margin-top: 30px; text-align: center; color: #6b7280;">Si tienes alguna pregunta, la empresa se pondrá en contacto contigo directamente.</p>
+
+      <p style="margin-top: 30px; text-align: center; font-size: 18px;"><strong>¡Te deseamos mucho éxito en tu nuevo rol! 🚀</strong></p>
+    </div>
+    <div class="footer">
+      <p><strong>Sistema RRHH Blockchain</strong></p>
+      <p>Construyendo puentes entre talento y oportunidades</p>
+      <p style="margin-top: 10px;">Gracias por confiar en nosotros para tu búsqueda profesional</p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    try {
+      const mailOptions = {
+        from: `"${process.env.EMAIL_FROM_NAME || 'Sistema RRHH Blockchain'}" <${process.env.SMTP_USER}>`,
+        to: candidatoEmail,
+        subject: `🎉 ¡CONTRATADO! ${vacanteTitulo} en ${empresaNombre}`,
+        html: htmlEmail
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      console.log(`📧 Email contratación enviado a ${candidatoEmail}`);
+      return true;
+    } catch (error) {
+      console.error('❌ Error enviando email contratación:', error.message);
+      return false;
+    }
+  }
+
+  // ========================================
+  // FIN S009.7
+  // ========================================
 
   /**
    * Generar plantilla HTML para email de verificación

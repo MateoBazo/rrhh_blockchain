@@ -3,6 +3,7 @@
 /**
  * CONTROLADOR: Postulaciones
  * S009.6: CRUD + gestión estados + scoring
+ * S009.7: Notificaciones email
  */
 
 const { validationResult } = require('express-validator');
@@ -17,6 +18,7 @@ const {
 } = require('../models');
 const { registrarAuditoria } = require('../utils/auditHelper');
 const matchingService = require('../services/matchingService');
+const emailService = require('../services/emailService'); // ✅ S009.7
 
 /**
  * Helpers de respuesta
@@ -116,6 +118,62 @@ const postular = async (req, res) => {
 
     console.log(`✅ Postulación creada ID=${postulacion.id}, score=${scoring.score_total}/100`);
 
+    // ========================================
+    // S009.7: ENVIAR EMAILS (async sin bloquear)
+    // ========================================
+    setImmediate(async () => {
+      try {
+        // Email a empresa
+        const empresa = await Empresa.findByPk(vacante.empresa_id, {
+          include: [{
+            model: Usuario,
+            as: 'usuario',
+            attributes: ['email']
+          }]
+        });
+
+        if (empresa && empresa.usuario?.email) {
+          await emailService.enviarEmailNuevaPostulacion({
+            empresaEmail: empresa.usuario.email,
+            empresaNombre: empresa.razon_social,
+            candidatoNombre: `${candidato.nombres} ${candidato.apellido_paterno}`,
+            vacanteId: vacante.id,
+            vacanteTitulo: vacante.titulo,
+            score: scoring.score_total,
+            candidatoUbicacion: `${candidato.ciudad || 'N/A'}, ${candidato.departamento || 'N/A'}`,
+            candidatoExperiencia: candidato.anios_experiencia || 0,
+            fechaPostulacion: new Date().toLocaleDateString('es-BO'),
+            urlDetalle: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/empresa/postulaciones/${postulacion.id}`
+          });
+        }
+
+        // Email a candidato
+        const usuario = await Usuario.findByPk(usuarioId);
+        if (usuario?.email) {
+          await emailService.enviarEmailConfirmacionPostulacion({
+            candidatoEmail: usuario.email,
+            candidatoNombre: `${candidato.nombres} ${candidato.apellido_paterno}`,
+            vacanteTitulo: vacante.titulo,
+            empresaNombre: empresa?.razon_social || 'La empresa',
+            score: scoring.score_total,
+            scoreHabilidades: scoring.desglose.habilidades.puntos,
+            scoreExperiencia: scoring.desglose.experiencia.puntos,
+            scoreEducacion: scoring.desglose.educacion.puntos,
+            scoreUbicacion: scoring.desglose.ubicacion.puntos,
+            vacanteModalidad: vacante.modalidad || 'No especificado',
+            vacanteUbicacion: `${vacante.ciudad || 'N/A'}, ${vacante.departamento || 'N/A'}`,
+            fechaPostulacion: new Date().toLocaleDateString('es-BO'),
+            urlDetalle: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/mis-postulaciones/${postulacion.id}`
+          });
+        }
+
+        console.log('📧 Emails de postulación enviados exitosamente');
+      } catch (emailError) {
+        console.error('⚠️  Error enviando emails (no crítico):', emailError.message);
+      }
+    });
+    // ========================================
+
     return exitoRespuesta(res, 201, 'Postulación enviada exitosamente', {
       id: postulacion.id,
       vacante_id: vacante_id,
@@ -159,18 +217,18 @@ const misPostulaciones = async (req, res) => {
     const { count, rows: postulaciones } = await Postulacion.findAndCountAll({
       where: whereConditions,
       include: [{
-        model: Candidato,
-        as: 'candidato',
-        attributes: ['id', 'nombres', 'apellido_paterno', 'apellido_materno', 'telefono', 'ciudad', 'departamento', 'foto_perfil_url'],  // ✅ QUITAR email
-        include: [{  // ✅ AGREGAR include Usuario
-          model: Usuario,
-          as: 'usuario',
-          attributes: ['email']
+        model: Vacante,
+        as: 'vacante',
+        attributes: ['id', 'titulo', 'modalidad', 'salario_min', 'salario_max', 'departamento', 'ciudad', 'estado'],
+        include: [{
+          model: Empresa,
+          as: 'empresa',
+          attributes: ['id', 'razon_social', 'sector', 'logo_url']
         }]
       }],
       order: [
-        ['score_compatibilidad', 'DESC'],
-        ['fecha_postulacion', 'ASC']
+        ['fecha_postulacion', 'DESC'],
+        ['score_compatibilidad', 'DESC']
       ],
       limit: parseInt(limite),
       offset: offset
@@ -247,7 +305,7 @@ const postulacionesVacante = async (req, res) => {
       include: [{
         model: Candidato,
         as: 'candidato',
-        attributes: ['id', 'nombres', 'apellido_paterno', 'apellido_materno', 'telefono', 'ciudad', 'departamento', 'foto_perfil_url'],  // ✅ SIN email
+        attributes: ['id', 'nombres', 'apellido_paterno', 'apellido_materno', 'telefono', 'ciudad', 'departamento', 'foto_perfil_url'],
         include: [{
           model: Usuario,
           as: 'usuario',
@@ -272,22 +330,22 @@ const postulacionesVacante = async (req, res) => {
         id: vacante.id,
         titulo: vacante.titulo
       },
-    postulaciones: postulaciones.map(p => ({
-      id: p.id,
-      candidato: {
-        id: p.candidato.id,
-        nombre_completo: `${p.candidato.nombres} ${p.candidato.apellido_paterno} ${p.candidato.apellido_materno || ''}`.trim(),
-        email: p.candidato.usuario?.email || 'N/A',  // ✅ CAMBIAR
-        telefono: p.candidato.telefono,
-        ubicacion: `${p.candidato.ciudad}, ${p.candidato.departamento}`,
-        foto_perfil: p.candidato.foto_perfil_url
-      },
-      estado: p.estado,
-      score_compatibilidad: p.score_compatibilidad,
-      fecha_postulacion: p.fecha_postulacion,
-      leido: p.leido_empresa,
-      carta_presentacion: p.carta_presentacion
-    }))
+      postulaciones: postulaciones.map(p => ({
+        id: p.id,
+        candidato: {
+          id: p.candidato.id,
+          nombre_completo: `${p.candidato.nombres} ${p.candidato.apellido_paterno} ${p.candidato.apellido_materno || ''}`.trim(),
+          email: p.candidato.usuario?.email || 'N/A',
+          telefono: p.candidato.telefono,
+          ubicacion: `${p.candidato.ciudad}, ${p.candidato.departamento}`,
+          foto_perfil: p.candidato.foto_perfil_url
+        },
+        estado: p.estado,
+        score_compatibilidad: p.score_compatibilidad,
+        fecha_postulacion: p.fecha_postulacion,
+        leido: p.leido_empresa,
+        carta_presentacion: p.carta_presentacion
+      }))
     });
 
   } catch (error) {
@@ -295,6 +353,7 @@ const postulacionesVacante = async (req, res) => {
     return errorRespuesta(res, 500, 'Error al obtener postulaciones', error.message);
   }
 };
+
 /**
  * 4. CAMBIAR ESTADO POSTULACIÓN (Empresa)
  * PATCH /api/postulaciones/:id/estado
@@ -335,9 +394,9 @@ const cambiarEstado = async (req, res) => {
       'revisado': ['preseleccionado', 'rechazado'],
       'preseleccionado': ['entrevista', 'rechazado'],
       'entrevista': ['contratado', 'rechazado'],
-      'rechazado': [], // Estado final
-      'contratado': [], // Estado final
-      'retirado': [] // Estado final
+      'rechazado': [],
+      'contratado': [],
+      'retirado': []
     };
 
     const estadoActual = postulacion.estado;
@@ -390,6 +449,79 @@ const cambiarEstado = async (req, res) => {
 
     console.log(`🔄 Postulación ${id}: ${estadoAnterior} → ${estado}`);
 
+    // ========================================
+    // S009.7: ENVIAR EMAIL CANDIDATO (async)
+    // ========================================
+    setImmediate(async () => {
+      try {
+        const candidato = await Candidato.findByPk(postulacion.candidato_id, {
+          include: [{
+            model: Usuario,
+            as: 'usuario',
+            attributes: ['email']
+          }]
+        });
+
+        if (!candidato?.usuario?.email) return;
+
+        const empresaNombre = empresa.razon_social;
+        const vacanteTitulo = postulacion.vacante.titulo;
+
+        const mensajesEstado = {
+          'revisado': '<p>Tu postulación ha sido <strong>revisada</strong> por el equipo de reclutamiento.</p><p>Están evaluando tu perfil en detalle. Te mantendremos informado/a.</p>',
+          'preseleccionado': '<p>🎉 <strong>¡Excelentes noticias!</strong> Has sido preseleccionado/a.</p><p>Estás entre los finalistas. La empresa podría contactarte pronto para los siguientes pasos.</p>',
+          'entrevista': '<p>📞 La empresa desea <strong>agendar una entrevista</strong> contigo.</p><p>Prepárate revisando la descripción del puesto y practicando tus respuestas. ¡Mucho éxito!</p>',
+          'contratado': '<p>🎊 <strong>¡FELICITACIONES!</strong> Has sido contratado/a.</p><p>La empresa se pondrá en contacto contigo con los detalles del contrato.</p>',
+          'rechazado': '<p>Agradecemos tu interés. Después de evaluación decidimos continuar con otros candidatos.</p><p>No te desanimes, sigue postulando. Cada proceso es una oportunidad de aprendizaje.</p>'
+        };
+
+        // Emails específicos para estados clave
+        if (estado === 'preseleccionado') {
+          await emailService.enviarEmailPreseleccionado({
+            candidatoEmail: candidato.usuario.email,
+            candidatoNombre: `${candidato.nombres} ${candidato.apellido_paterno}`,
+            vacanteTitulo: vacanteTitulo,
+            empresaNombre: empresaNombre,
+            score: postulacion.score_compatibilidad,
+            urlPostulacion: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/mis-postulaciones/${postulacion.id}`
+          });
+        } else if (estado === 'rechazado') {
+          await emailService.enviarEmailRechazado({
+            candidatoEmail: candidato.usuario.email,
+            candidatoNombre: `${candidato.nombres} ${candidato.apellido_paterno}`,
+            vacanteTitulo: vacanteTitulo,
+            empresaNombre: empresaNombre,
+            motivoOpcional: notas || null
+          });
+        } else if (estado === 'contratado') {
+          await emailService.enviarEmailContratado({
+            candidatoEmail: candidato.usuario.email,
+            candidatoNombre: `${candidato.nombres} ${candidato.apellido_paterno}`,
+            vacanteTitulo: vacanteTitulo,
+            empresaNombre: empresaNombre,
+            urlPostulacion: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/mis-postulaciones/${postulacion.id}`
+          });
+        } else {
+          // Email genérico para revisado, entrevista
+          await emailService.enviarEmailCambioEstado({
+            candidatoEmail: candidato.usuario.email,
+            candidatoNombre: `${candidato.nombres} ${candidato.apellido_paterno}`,
+            vacanteTitulo: vacanteTitulo,
+            empresaNombre: empresaNombre,
+            estadoAnterior: estadoAnterior,
+            estadoNuevo: estado,
+            mensajeEstado: mensajesEstado[estado] || '<p>Tu postulación ha sido actualizada.</p>',
+            urlPostulacion: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/mis-postulaciones/${postulacion.id}`
+          });
+        }
+
+        console.log(`📧 Email cambio estado enviado a ${candidato.usuario.email}`);
+      } catch (emailError) {
+        console.error('⚠️  Error enviando email cambio estado:', emailError.message);
+      }
+    });
+    // ========================================
+
     return exitoRespuesta(res, 200, 'Estado actualizado exitosamente', {
       id: postulacion.id,
       estado: postulacion.estado,
@@ -425,7 +557,7 @@ const retirarPostulacion = async (req, res) => {
       return errorRespuesta(res, 403, 'No tienes permiso para retirar esta postulación');
     }
 
-    // 3. Validar estado (no puede retirar si ya contratado/rechazado)
+    // 3. Validar estado
     if (['contratado', 'rechazado'].includes(postulacion.estado)) {
       return errorRespuesta(
         res, 
@@ -492,8 +624,8 @@ const obtenerDetalle = async (req, res) => {
         {
           model: Candidato,
           as: 'candidato',
-          attributes: ['id', 'nombres', 'apellido_paterno', 'apellido_materno', 'usuario_id'],  // ✅ QUITAR email
-          include: [{  // ✅ AGREGAR include Usuario
+          attributes: ['id', 'nombres', 'apellido_paterno', 'apellido_materno', 'usuario_id'],
+          include: [{
             model: Usuario,
             as: 'usuario',
             attributes: ['email']
@@ -506,7 +638,7 @@ const obtenerDetalle = async (req, res) => {
       return errorRespuesta(res, 404, 'Postulación no encontrada');
     }
 
-    // 2. Verificar permisos (candidato propietario o empresa de la vacante)
+    // 2. Verificar permisos
     const candidato = await Candidato.findOne({ where: { usuario_id: usuarioId } });
     const empresa = await Empresa.findOne({ where: { usuario_id: usuarioId } });
 
@@ -538,7 +670,7 @@ const obtenerDetalle = async (req, res) => {
       candidato: {
         id: postulacion.candidato.id,
         nombre_completo: `${postulacion.candidato.nombres} ${postulacion.candidato.apellido_paterno} ${postulacion.candidato.apellido_materno || ''}`.trim(),
-        email: postulacion.candidato.usuario?.email || 'N/A'  // ✅ CAMBIAR
+        email: postulacion.candidato.usuario?.email || 'N/A'
       },
       estado: postulacion.estado,
       score_compatibilidad: postulacion.score_compatibilidad,
