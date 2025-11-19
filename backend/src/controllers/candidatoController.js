@@ -3,6 +3,7 @@ const { Candidato, Usuario, Educacion, ExperienciaLaboral, Habilidad, Certificac
 const { exitoRespuesta, errorRespuesta } = require('../utils/responses');
 const { validationResult } = require('express-validator');
 const { Op } = require('sequelize');
+const { HabilidadCatalogo } = require('../models');
 
 /**
  * 🆕 Obtener perfil del candidato del usuario logueado
@@ -553,7 +554,315 @@ const obtenerCandidatosConReferenciasVerificadas = async (req, res) => {
     return errorRespuesta(res, 500, 'Error al obtener candidatos', error.message);
   }
 };
+/**
+ * BÚSQUEDA AVANZADA CANDIDATOS CON FILTROS
+ * GET /api/candidatos/buscar-avanzado
+ * Rol: EMPRESA, ADMIN
+ * 
+ * Query params:
+ * - habilidades: Array IDs habilidades requeridas (comma separated)
+ * - nivel_habilidad: Nivel mínimo habilidad (basico, intermedio, avanzado, experto)
+ * - experiencia_min: Años experiencia mínimo
+ * - experiencia_max: Años experiencia máximo
+ * - nivel_educativo: Nivel educativo mínimo
+ * - ubicacion_ciudad: Ciudad específica
+ * - ubicacion_departamento: Departamento
+ * - modalidad: Modalidad preferida (remoto, presencial, hibrido)
+ * - disponibilidad: inmediata, 15_dias, 1_mes, negociable
+ * - salario_min: Salario esperado mínimo candidato
+ * - salario_max: Salario esperado máximo candidato
+ * - busqueda: Texto libre (nombre, profesión, resumen)
+ * - pagina: Número página (default 1)
+ * - limite: Resultados por página (default 20, max 100)
+ * - ordenar: score, experiencia, fecha (default: score)
+ */
+const busquedaAvanzadaCandidatos = async (req, res) => {
+  try {
+    const {
+      habilidades,
+      nivel_habilidad,
+      experiencia_min,
+      experiencia_max,
+      nivel_educativo,
+      ubicacion_ciudad,
+      ubicacion_departamento,
+      modalidad,
+      disponibilidad,
+      salario_min,
+      salario_max,
+      busqueda,
+      pagina = 1,
+      limite = 20,
+      ordenar = 'experiencia'
+    } = req.query;
 
+    // 1. Construir WHERE conditions base
+    const whereConditions = {
+      perfil_publico: true // Solo perfiles públicos
+    };
+
+    // 2. Filtro experiencia
+    if (experiencia_min) {
+      whereConditions.anios_experiencia = {
+        [Op.gte]: parseInt(experiencia_min)
+      };
+    }
+    if (experiencia_max) {
+      whereConditions.anios_experiencia = {
+        ...whereConditions.anios_experiencia,
+        [Op.lte]: parseInt(experiencia_max)
+      };
+    }
+
+    // 3. Filtro nivel educativo
+    if (nivel_educativo) {
+      const nivelesJerarquia = {
+        'Secundaria': 1,
+        'Técnico': 2,
+        'Licenciatura': 3,
+        'Maestría': 4,
+        'Doctorado': 5
+      };
+
+      const nivelMinimo = nivelesJerarquia[nivel_educativo];
+      if (nivelMinimo) {
+        const nivelesValidos = Object.keys(nivelesJerarquia).filter(
+          nivel => nivelesJerarquia[nivel] >= nivelMinimo
+        );
+        whereConditions.nivel_educativo = { [Op.in]: nivelesValidos };
+      }
+    }
+
+    // 4. Filtro ubicación
+    if (ubicacion_ciudad) {
+      whereConditions.ciudad = { [Op.like]: `%${ubicacion_ciudad}%` };
+    }
+    if (ubicacion_departamento) {
+      whereConditions.departamento = { [Op.like]: `%${ubicacion_departamento}%` };
+    }
+
+    // 5. Filtro modalidad
+    if (modalidad) {
+      whereConditions.modalidad_preferida = modalidad;
+    }
+
+    // 6. Filtro disponibilidad
+    if (disponibilidad) {
+      whereConditions.disponibilidad = disponibilidad;
+    }
+
+    // 7. Filtro salario
+    if (salario_min) {
+      whereConditions.salario_esperado_min = {
+        [Op.gte]: parseFloat(salario_min)
+      };
+    }
+    if (salario_max) {
+      whereConditions.salario_esperado_max = {
+        [Op.lte]: parseFloat(salario_max)
+      };
+    }
+
+    // 8. Búsqueda texto libre
+    if (busqueda) {
+      whereConditions[Op.or] = [
+        { nombres: { [Op.like]: `%${busqueda}%` } },
+        { apellido_paterno: { [Op.like]: `%${busqueda}%` } },
+        { apellido_materno: { [Op.like]: `%${busqueda}%` } },
+        { profesion: { [Op.like]: `%${busqueda}%` } },
+        { resumen_profesional: { [Op.like]: `%${busqueda}%` } }
+      ];
+    }
+
+    // 9. Include habilidades si se filtró por ellas
+    const includes = [];
+    
+    if (habilidades) {
+      const habilidadesArray = habilidades.split(',').map(id => parseInt(id.trim()));
+      
+      includes.push({
+        model: HabilidadCatalogo,
+        as: 'habilidadesCatalogo',
+        through: {
+          attributes: ['nivel_dominio', 'anios_experiencia']
+        },
+        where: {
+          id: { [Op.in]: habilidadesArray }
+        },
+        required: true // INNER JOIN para filtrar solo candidatos con esas habilidades
+      });
+
+      // Filtro nivel habilidad
+      if (nivel_habilidad) {
+        const nivelesJerarquia = {
+          'basico': 1,
+          'intermedio': 2,
+          'avanzado': 3,
+          'experto': 4
+        };
+
+        const nivelMinimo = nivelesJerarquia[nivel_habilidad];
+        const nivelesValidos = Object.keys(nivelesJerarquia)
+          .filter(nivel => nivelesJerarquia[nivel] >= nivelMinimo);
+
+        includes[0].through.where = {
+          nivel_dominio: { [Op.in]: nivelesValidos }
+        };
+      }
+    }
+
+    // 10. Paginación
+    const limiteInt = Math.min(parseInt(limite), 100); // Max 100 resultados
+    const offset = (parseInt(pagina) - 1) * limiteInt;
+
+    // 11. Ordenamiento
+    let orderBy = [];
+    switch (ordenar) {
+      case 'experiencia':
+        orderBy = [['anios_experiencia', 'DESC']];
+        break;
+      case 'fecha':
+        orderBy = [['created_at', 'DESC']];
+        break;
+      default:
+        orderBy = [['anios_experiencia', 'DESC']]; // Default experiencia
+    }
+
+    // 12. Query principal
+    const { count, rows: candidatos } = await Candidato.findAndCountAll({
+      where: whereConditions,
+      include: includes.length > 0 ? includes : undefined,
+      order: orderBy,
+      limit: limiteInt,
+      offset: offset,
+      distinct: true // Para COUNT correcto con JOINs
+    });
+
+    // 13. Formatear resultados
+    const resultados = candidatos.map(candidato => ({
+      id: candidato.id,
+      nombre_completo: `${candidato.nombres} ${candidato.apellido_paterno} ${candidato.apellido_materno || ''}`.trim(),
+      profesion: candidato.profesion,
+      nivel_educativo: candidato.nivel_educativo,
+      anios_experiencia: candidato.anios_experiencia,
+      ubicacion: `${candidato.ciudad || 'N/A'}, ${candidato.departamento || 'N/A'}`,
+      modalidad_preferida: candidato.modalidad_preferida,
+      disponibilidad: candidato.disponibilidad,
+      salario_esperado: candidato.salario_esperado_min && candidato.salario_esperado_max
+        ? `${candidato.salario_esperado_min} - ${candidato.salario_esperado_max}`
+        : 'No especificado',
+      foto_perfil: candidato.foto_perfil_url,
+      resumen: candidato.resumen_profesional?.substring(0, 200) + '...',
+      habilidades: candidato.habilidadesCatalogo?.map(h => ({
+        nombre: h.nombre,
+        nivel: h.candidato_habilidad?.nivel_dominio,
+        anios: h.candidato_habilidad?.anios_experiencia
+      }))
+    }));
+
+    console.log(`🔍 Búsqueda avanzada: ${count} candidatos encontrados`);
+
+    return exitoRespuesta(res, 200, 'Candidatos encontrados', {
+      total: count,
+      pagina: parseInt(pagina),
+      limite: limiteInt,
+      total_paginas: Math.ceil(count / limiteInt),
+      candidatos: resultados,
+      filtros_aplicados: {
+        habilidades: habilidades || null,
+        nivel_habilidad: nivel_habilidad || null,
+        experiencia: experiencia_min || experiencia_max ? `${experiencia_min || 0} - ${experiencia_max || '∞'}` : null,
+        nivel_educativo: nivel_educativo || null,
+        ubicacion: ubicacion_ciudad || ubicacion_departamento || null,
+        modalidad: modalidad || null,
+        busqueda: busqueda || null
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error en búsqueda avanzada:', error);
+    return errorRespuesta(res, 500, 'Error al buscar candidatos', error.message);
+  }
+};
+
+/**
+ * CANDIDATOS RECOMENDADOS PARA VACANTE
+ * GET /api/candidatos/recomendados-vacante/:vacante_id
+ * Rol: EMPRESA, ADMIN
+ * 
+ * Usa algoritmo matching para encontrar top N candidatos compatibles
+ */
+const candidatosRecomendadosVacante = async (req, res) => {
+  try {
+    const { vacante_id } = req.params;
+    const { limite = 10 } = req.query;
+    const usuarioId = req.usuario.id;
+
+    const { Vacante, Empresa } = require('../models');
+    const matchingService = require('../services/matchingService');
+
+    // 1. Verificar vacante y permisos
+    const vacante = await Vacante.findByPk(vacante_id);
+    if (!vacante) {
+      return errorRespuesta(res, 404, 'Vacante no encontrada');
+    }
+
+    const empresa = await Empresa.findOne({ where: { usuario_id: usuarioId } });
+    if (!empresa || vacante.empresa_id !== empresa.id) {
+      return errorRespuesta(res, 403, 'No tienes permiso para ver esta vacante');
+    }
+
+    // 2. Obtener todos candidatos públicos
+    const candidatos = await Candidato.findAll({
+      where: { perfil_publico: true },
+      limit: 100 // Limitar para performance
+    });
+
+    // 3. Calcular score para cada candidato
+    const candidatosConScore = [];
+
+    for (const candidato of candidatos) {
+      try {
+        const scoring = await matchingService.calcularScore(candidato.id, vacante_id);
+        
+        candidatosConScore.push({
+          id: candidato.id,
+          nombre_completo: `${candidato.nombres} ${candidato.apellido_paterno} ${candidato.apellido_materno || ''}`.trim(),
+          profesion: candidato.profesion,
+          nivel_educativo: candidato.nivel_educativo,
+          anios_experiencia: candidato.anios_experiencia,
+          ubicacion: `${candidato.ciudad || 'N/A'}, ${candidato.departamento || 'N/A'}`,
+          foto_perfil: candidato.foto_perfil_url,
+          score_compatibilidad: scoring.score_total,
+          desglose_score: scoring.desglose
+        });
+      } catch (error) {
+        console.warn(`⚠️  Error calculando score candidato ${candidato.id}:`, error.message);
+      }
+    }
+
+    // 4. Ordenar por score DESC y tomar top N
+    const topCandidatos = candidatosConScore
+      .sort((a, b) => b.score_compatibilidad - a.score_compatibilidad)
+      .slice(0, parseInt(limite));
+
+    console.log(`🎯 ${topCandidatos.length} candidatos recomendados para vacante ${vacante_id}`);
+
+    return exitoRespuesta(res, 200, 'Candidatos recomendados obtenidos', {
+      vacante: {
+        id: vacante.id,
+        titulo: vacante.titulo
+      },
+      total_evaluados: candidatos.length,
+      total_recomendados: topCandidatos.length,
+      candidatos: topCandidatos
+    });
+
+  } catch (error) {
+    console.error('❌ Error al obtener candidatos recomendados:', error);
+    return errorRespuesta(res, 500, 'Error al obtener recomendaciones', error.message);
+  }
+};
 module.exports = {
   obtenerMiPerfil,
   obtenerCandidatos,
@@ -561,5 +870,7 @@ module.exports = {
   actualizarPerfil,
   guardarPerfilCandidato,
   obtenerPerfilCompleto,
-  obtenerCandidatosConReferenciasVerificadas
+  obtenerCandidatosConReferenciasVerificadas,
+  busquedaAvanzadaCandidatos,
+  candidatosRecomendadosVacante
 };

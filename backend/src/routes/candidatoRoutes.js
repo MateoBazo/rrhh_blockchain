@@ -9,7 +9,9 @@ const {
   actualizarPerfil,          
   guardarPerfilCandidato,
   obtenerPerfilCompleto,
-  obtenerCandidatosConReferenciasVerificadas
+  obtenerCandidatosConReferenciasVerificadas,
+  busquedaAvanzadaCandidatos,
+  candidatosRecomendadosVacante
 } = require('../controllers/candidatoController');
 const { verificarToken, verificarRoles } = require('../middlewares/auth');
 
@@ -18,7 +20,29 @@ router.get('/con-referencias-verificadas',
   verificarRoles(['EMPRESA', 'ADMIN']),
   obtenerCandidatosConReferenciasVerificadas
 );
+/**
+ * GET /api/candidatos/buscar-avanzado
+ * Búsqueda avanzada con filtros múltiples
+ * Rol: EMPRESA, ADMIN
+ * Query params: habilidades, experiencia_min, nivel_educativo, ubicacion_ciudad, etc.
+ */
+router.get('/buscar-avanzado',
+  verificarToken,
+  verificarRoles(['EMPRESA', 'ADMIN']),
+  busquedaAvanzadaCandidatos
+);
 
+/**
+ * GET /api/candidatos/recomendados-vacante/:vacante_id
+ * Candidatos recomendados para vacante específica (matching automático)
+ * Rol: EMPRESA, ADMIN
+ * Query params: limite (default 10)
+ */
+router.get('/recomendados-vacante/:vacante_id',
+  verificarToken,
+  verificarRoles(['EMPRESA', 'ADMIN']),
+  candidatosRecomendadosVacante
+);
 // ============================================
 // 🆕 RUTAS NUEVAS S007.3.1
 // ============================================
