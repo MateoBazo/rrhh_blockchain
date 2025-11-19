@@ -15,6 +15,9 @@ import CandidatoDashboard from '../pages/CandidatoDashboard';
 import PerfilUsuario from '../pages/PerfilUsuario';
 import MisDocumentos from '../pages/MisDocumentos';
 import MisReferencias from '../pages/MisReferencias';
+import BuscarVacantes from '../pages/candidato/BuscarVacantes';
+import DetalleVacante from '../pages/candidato/DetalleVacante';
+import MisPostulaciones from '../pages/candidato/MisPostulaciones';
 
 // Páginas protegidas - Empresa
 import EmpresaDashboard from '../pages/EmpresaDashboard';
@@ -86,7 +89,30 @@ export default function AppRoutes() {
               </ProtectedRoute>
             }
           />
-
+          <Route 
+          path="/candidato/vacantes" 
+          element={
+            <ProtectedRoute roles={['CANDIDATO']}>
+              <BuscarVacantes />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/candidato/vacantes/:id" 
+          element={
+            <ProtectedRoute roles={['CANDIDATO']}>
+              <DetalleVacante />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/candidato/postulaciones" 
+          element={
+            <ProtectedRoute roles={['CANDIDATO']}>
+              <MisPostulaciones />
+            </ProtectedRoute>
+          } 
+        />
           {/* ============================================ */}
           {/* RUTAS EMPRESA */}
           {/* ============================================ */}
