@@ -22,6 +22,11 @@ import MisPostulaciones from '../pages/candidato/MisPostulaciones';
 // Páginas protegidas - Empresa
 import EmpresaDashboard from '../pages/EmpresaDashboard';
 import ReferenciasVerificadas from '../pages/ReferenciasVerificadas'; // 🆕 NUEVO
+import MisVacantes from '../pages/empresa/MisVacantes';
+import CrearVacante from '../pages/empresa/CrearVacante';
+import PostulacionesVacante from '../pages/empresa/PostulacionesVacante';
+import BuscarCandidatos from '../pages/empresa/BuscarCandidatos';
+import AnalyticsEmpresa from '../pages/empresa/AnalyticsEmpresa';
 
 // Páginas protegidas - Admin
 import AdminDashboard from '../pages/AdminDashboard';
@@ -134,6 +139,12 @@ export default function AppRoutes() {
               </ProtectedRoute>
             }
           />
+          <Route path="/empresa/vacantes" element={<ProtectedRoute roles={['EMPRESA']}><MisVacantes /></ProtectedRoute>} />
+          <Route path="/empresa/vacantes/crear" element={<ProtectedRoute roles={['EMPRESA']}><CrearVacante /></ProtectedRoute>} />
+          <Route path="/empresa/vacantes/editar/:id" element={<ProtectedRoute roles={['EMPRESA']}><CrearVacante /></ProtectedRoute>} />
+          <Route path="/empresa/vacantes/:id/postulaciones" element={<ProtectedRoute roles={['EMPRESA']}><PostulacionesVacante /></ProtectedRoute>} />
+          <Route path="/empresa/candidatos" element={<ProtectedRoute roles={['EMPRESA']}><BuscarCandidatos /></ProtectedRoute>} />
+          <Route path="/empresa/analytics" element={<ProtectedRoute roles={['EMPRESA']}><AnalyticsEmpresa /></ProtectedRoute>} />
 
           {/* ============================================ */}
           {/* RUTAS ADMIN */}
