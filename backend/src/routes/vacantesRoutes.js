@@ -82,6 +82,26 @@ router.post(
   ],
   crearVacante
 );
+/**
+ * 1.5 LISTAR TODAS LAS VACANTES
+ * GET /api/vacantes
+ * Query params: estado, modalidad, departamento, ciudad, pagina, limite
+ */
+router.get(
+  '/',
+  [
+    query('estado').optional().isIn(['abierta', 'pausada', 'cerrada']),
+    query('modalidad').optional().isIn(['presencial', 'remoto', 'hibrido']),
+    query('departamento').optional().trim(),
+    query('ciudad').optional().trim(),
+    query('salario_min').optional().isInt({ min: 0 }),
+    query('salario_max').optional().isInt({ min: 0 }),
+    query('experiencia_max').optional().isInt({ min: 0, max: 30 }),
+    query('pagina').optional().isInt({ min: 1 }).toInt(),
+    query('limite').optional().isInt({ min: 1, max: 50 }).toInt()
+  ],
+  buscarVacantes // Reutilizamos el mismo controlador que /buscar
+);
 
 /**
  * 2. PUBLICAR VACANTE

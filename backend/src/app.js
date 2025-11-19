@@ -128,8 +128,7 @@ app.use('/api/analytics', require('./routes/analyticsRoutes'));
 
 // 🆕 S009 - Historial Laboral
 app.use('/api/historial-laboral', require('./routes/historialLaboralRoutes'));
-app.use('/api/vacantes', require('./routes/vacantesRoutes'));
-app.use('/api/vacantes', vacanteHabilidadesRoutes);
+app.use('/api/vacantes', require('./routes/vacantesRoutes')); // CRUD Vacantes
 app.use('/api/postulaciones', postulacionesRoutes);
 // ==========================================
 // MANEJO DE ERRORES

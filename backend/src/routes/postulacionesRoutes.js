@@ -39,11 +39,11 @@ router.post(
 );
 
 /**
- * 2. MIS POSTULACIONES
- * GET /api/postulaciones/mis-postulaciones
+ * 🆕 2. MIS POSTULACIONES
+ * GET /api/postulaciones/candidato/me
  */
 router.get(
-  '/mis-postulaciones',
+  '/candidato/me',
   verificarToken,
   verificarRoles(['CANDIDATO']),
   [
