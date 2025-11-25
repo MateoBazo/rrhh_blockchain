@@ -76,11 +76,24 @@ const ModalPostular = ({ vacante, isOpen, onClose, onPostular, loading = false }
     }
 
     try {
-      await onPostular({
+      // ✅ CREAR FormData correctamente
+      const postData = new FormData();
+      postData.append('vacante_id', vacante.id);
+      postData.append('carta_presentacion', formData.carta_presentacion.trim());
+      
+      // Solo agregar archivo si existe
+      if (formData.cv_archivo) {
+        postData.append('cv_postulacion', formData.cv_archivo);
+      }
+
+      console.log('📤 Enviando postulación:', {
         vacante_id: vacante.id,
-        carta_presentacion: formData.carta_presentacion.trim(),
-        cv_postulacion: formData.cv_archivo
+        carta_length: formData.carta_presentacion.length,
+        tiene_cv: !!formData.cv_archivo
       });
+
+      // Enviar FormData
+      await onPostular(postData);
 
       // Cerrar modal
       onClose();
@@ -88,6 +101,7 @@ const ModalPostular = ({ vacante, isOpen, onClose, onPostular, loading = false }
       // Limpiar form
       setFormData({ carta_presentacion: '', cv_archivo: null });
     } catch (err) {
+      console.error('Error en modal:', err);
       setError(err.response?.data?.mensaje || 'Error al postular');
     }
   };

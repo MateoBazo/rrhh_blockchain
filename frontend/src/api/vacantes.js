@@ -84,9 +84,10 @@ export const vacantesAPI = {
    * @param {Object} data - Datos a actualizar (parcial)
    * @returns {Promise<Object>} Vacante actualizada
    */
-  actualizar: async (id, data) => {
-    console.log('🔍 [vacantesAPI] Actualizando vacante ID:', id, data);
-    return await axiosInstance.put(`/vacantes/${id}`, data);
+  actualizar: async (id, datos) => {
+    console.log('🔍 [vacantesAPI] Actualizando vacante ID:', id, datos);
+    const response = await axiosInstance.patch(`/vacantes/${id}`, datos);  // ✅ PATCH
+    return response;
   },
 
   /**
@@ -121,9 +122,10 @@ export const vacantesAPI = {
    * @param {Object} filtros - Filtros opcionales (estado, limite, pagina)
    * @returns {Promise<Object>} { vacantes: [], total }
    */
-  listarPorEmpresa: async (empresaId, filtros = {}) => {
-    console.log('🔍 [vacantesAPI] Listando vacantes de empresa:', empresaId);
-    return await axiosInstance.get(`/vacantes/empresa/${empresaId}`, { params: filtros });
+  listarPorEmpresa: async (params = {}) => {
+    console.log('🔍 [vacantesAPI] Listando vacantes de mi empresa con filtros:', params);
+    const response = await axiosInstance.get('/vacantes/empresa/mis-vacantes', { params });
+    return response;
   },
 
   /**

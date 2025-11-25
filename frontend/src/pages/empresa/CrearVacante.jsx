@@ -41,7 +41,7 @@ const CrearVacante = () => {
     salario_max: '',
     mostrar_salario: true,
     experiencia_requerida_anios: 0,
-    nivel_educativo_minimo: 'secundaria',
+    nivel_educativo_minimo: 'SECUNDARIA',
     beneficios: '',
     vacantes_disponibles: 1,
     fecha_cierre: '',
@@ -74,7 +74,7 @@ const CrearVacante = () => {
         salario_max: vacante.salario_max || '',
         mostrar_salario: vacante.mostrar_salario !== false,
         experiencia_requerida_anios: vacante.experiencia_requerida_anios || 0,
-        nivel_educativo_minimo: vacante.nivel_educativo_minimo || 'secundaria',
+        nivel_educativo_minimo: vacante.nivel_educativo_minimo || 'SECUNDARIA',
         beneficios: vacante.beneficios || '',
         vacantes_disponibles: vacante.vacantes_disponibles || 1,
         fecha_cierre: vacante.fecha_cierre ? vacante.fecha_cierre.split('T')[0] : '',
@@ -482,10 +482,10 @@ const CrearVacante = () => {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   {Object.entries(NIVELES_EDUCATIVOS).map(([key, value]) => (
-                    <option key={key} value={key}>
-                      {value}
-                    </option>
-                  ))}
+                  <option key={key} value={key}>  {/* ✅ value={key} no value={value} */}
+                    {value}
+                  </option>
+                ))}
                 </select>
               </div>
             </div>

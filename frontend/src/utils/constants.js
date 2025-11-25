@@ -67,16 +67,17 @@ export const TIPOS_CONTRATO = {
 
 export const JORNADAS_LABORALES = {
   COMPLETA: 'completa',
-  PARCIAL: 'parcial',
+  MEDIA_JORNADA: 'media_jornada', 
   POR_HORAS: 'por_horas',
+  FLEXIBLE: 'flexible'  
 };
 
 export const NIVELES_EDUCATIVOS = {
-  SECUNDARIA: 'Secundaria',
-  TECNICO: 'Técnico',
-  LICENCIATURA: 'Licenciatura',
-  MAESTRIA: 'Maestría',
-  DOCTORADO: 'Doctorado',
+  SECUNDARIA: 'secundaria',
+  TECNICO: 'tecnico',
+  LICENCIATURA: 'licenciatura',
+  MAESTRIA: 'maestria',
+  DOCTORADO: 'doctorado'
 };
 
 // ============================================
