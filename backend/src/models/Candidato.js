@@ -203,13 +203,13 @@ Candidato.associate = (models) => {
   }
 
   // Candidato -> Documento (1:N)
-  if (models.Documento) {
+  /*if (models.Documento) {
     Candidato.hasMany(models.Documento, {
       foreignKey: 'candidato_id',
       as: 'documentos',
       onDelete: 'CASCADE'
     });
-  }
+  }*/
 
   // Candidato -> ContratoLaboral (1:N)
   if (models.ContratoLaboral) {

@@ -42,9 +42,9 @@ router.post(
       .isLength({ min: 50 }).withMessage('La descripción debe tener al menos 50 caracteres'),
     
     body('requisitos')
+      .optional({ checkFalsy: true })  // ✅ Permite string vacío para borradores
       .trim()
-      .notEmpty().withMessage('Los requisitos son obligatorios')
-      .isLength({ min: 20 }).withMessage('Los requisitos deben tener al menos 20 caracteres'),
+      .isLength({ min: 20 }).withMessage('Los requisitos deben tener al menos 20 caracteres si se proporcionan'),
     
     body('modalidad')
       .optional()

@@ -48,13 +48,8 @@ const CrearVacante = () => {
     estado: 'borrador'
   });
 
-  // Cargar vacante si estamos editando
-  useEffect(() => {
-    if (modoEdicion) {
-      cargarVacante();
-    }
-  }, [id]);
-
+// Cargar vacante si estamos editando
+useEffect(() => {
   const cargarVacante = async () => {
     try {
       const response = await vacantesAPI.obtenerPorId(id);
@@ -88,6 +83,13 @@ const CrearVacante = () => {
       setLoading(false);
     }
   };
+
+  if (modoEdicion && id) {
+    cargarVacante();
+  } else {
+    setLoading(false);
+  }
+}, [id, modoEdicion]); // Ahora las dependencias son correctas
 
   // Handler cambios
   const handleChange = (e) => {
@@ -151,8 +153,18 @@ const CrearVacante = () => {
       let response;
       if (modoEdicion) {
         response = await vacantesAPI.actualizar(id, datos);
+        // Si se marcó publicar y está en borrador, publicar
+        if (publicar && formData.estado === 'borrador') {
+          await vacantesAPI.publicar(id);
+        }
       } else {
         response = await vacantesAPI.crear(datos);
+        
+        // Si se marcó publicar, publicar inmediatamente
+        if (publicar) {
+          const vacanteId = response.data?.data?.id || response.data?.id;
+          await vacantesAPI.publicar(vacanteId);
+        }
       }
 
       console.log('✅ Vacante guardada:', response.data);

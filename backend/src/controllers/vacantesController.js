@@ -378,18 +378,18 @@ const obtenerDetalleVacante = async (req, res) => {
       return errorRespuesta(res, 404, 'Vacante no encontrada');
     }
 
-    // Verificar si está disponible públicamente
-    if (vacante.estado !== 'abierta') {
-      // Solo empresa propietaria puede ver vacantes no abiertas
-      const usuarioId = req.usuario?.id;
-      if (usuarioId) {
-        const empresa = await Empresa.findOne({ where: { usuario_id: usuarioId } });
-        if (!empresa || vacante.empresa_id !== empresa.id) {
-          return errorRespuesta(res, 403, 'Esta vacante no está disponible públicamente');
-        }
-      } else {
-        return errorRespuesta(res, 403, 'Esta vacante no está disponible públicamente');
-      }
+    // ✅ VERIFICAR SI ES LA EMPRESA PROPIETARIA PRIMERO
+    const usuarioId = req.usuario?.id;
+    let esEmpresaPropietaria = false;
+
+    if (usuarioId) {
+      const empresa = await Empresa.findOne({ where: { usuario_id: usuarioId } });
+      esEmpresaPropietaria = empresa && vacante.empresa_id === empresa.id;
+    }
+
+    // ✅ Si NO es pública Y NO es el propietario → 403
+    if (vacante.estado !== 'abierta' && !esEmpresaPropietaria) {
+      return errorRespuesta(res, 403, 'Esta vacante no está disponible públicamente');
     }
 
     return exitoRespuesta(res, 200, 'Detalle de vacante obtenido', vacante);

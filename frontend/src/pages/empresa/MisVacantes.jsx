@@ -8,7 +8,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Briefcase, Edit, Pause, X, Users, Eye, Loader, AlertCircle } from 'lucide-react';
+import { Plus, Briefcase, Edit, Pause, X, Users, Eye, Loader, AlertCircle, ArrowLeft } from 'lucide-react';
 import { vacantesAPI } from '../../api/vacantes';
 import { ESTADOS_VACANTE } from '../../utils/constants';
 import VacanteCard from '../../components/vacantes/VacanteCard';
@@ -106,7 +106,6 @@ const MisVacantes = () => {
   // Handler pausar/reabrir (toggle)
   const handleTogglePausa = async (vacante) => {
     const accion = vacante.estado === 'pausada' ? 'reabrir' : 'pausar';
-    const nuevoEstado = vacante.estado === 'pausada' ? 'abierta' : 'pausada';
 
     const confirmacion = window.confirm(
       `¿Estás seguro de ${accion} la vacante "${vacante.titulo}"?`
@@ -117,7 +116,12 @@ const MisVacantes = () => {
     try {
       console.log(`${accion === 'pausar' ? '⏸️' : '▶️'} ${accion} vacante:`, vacante.id);
 
-      await vacantesAPI.actualizar(vacante.id, { estado: nuevoEstado });
+      // Usar los métodos específicos de la API
+      if (accion === 'pausar') {
+        await vacantesAPI.pausar(vacante.id);
+      } else {
+        await vacantesAPI.reabrir(vacante.id);
+      }
 
       alert(`Vacante ${accion === 'pausar' ? 'pausada' : 'reabierta'} exitosamente`);
 
@@ -146,29 +150,44 @@ const MisVacantes = () => {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-              <Briefcase className="mr-3" size={32} />
-              Mis Vacantes
-            </h1>
-            <p className="text-gray-600 mt-2">
-              Gestiona tus ofertas laborales y revisa las postulaciones
-            </p>
-          </div>
-
-          {/* Botón crear vacante */}
+        <div className="mb-6">
+          {/* Botón volver */}
           <button
-            onClick={handleCrearVacante}
+            onClick={() => navigate('/empresa/dashboard')}
             className="
-              px-6 py-3 bg-blue-600 text-white rounded-lg
-              hover:bg-blue-700 transition-colors
-              flex items-center font-medium shadow-md
+              flex items-center text-gray-600 hover:text-gray-900 
+              mb-4 transition-colors group
             "
           >
-            <Plus size={20} className="mr-2" />
-            Crear Vacante
+            <ArrowLeft className="mr-2 group-hover:-translate-x-1 transition-transform" size={20} />
+            Volver al Dashboard
           </button>
+
+          {/* Título y botón crear */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+                <Briefcase className="mr-3" size={32} />
+                Mis Vacantes
+              </h1>
+              <p className="text-gray-600 mt-2">
+                Gestiona tus ofertas laborales y revisa las postulaciones
+              </p>
+            </div>
+
+            {/* Botón crear vacante */}
+            <button
+              onClick={handleCrearVacante}
+              className="
+                px-6 py-3 bg-blue-600 text-white rounded-lg
+                hover:bg-blue-700 transition-colors
+                flex items-center font-medium shadow-md
+              "
+            >
+              <Plus size={20} className="mr-2" />
+              Crear Vacante
+            </button>
+          </div>
         </div>
 
         {/* Estadísticas */}
@@ -327,10 +346,10 @@ const MisVacantes = () => {
                   </div>
                   <div className="text-center p-3 bg-gray-50 rounded-lg">
                     <p className="text-sm font-medium text-gray-900">
-                      {new Date(vacante.fecha_publicacion).toLocaleDateString('es-ES', {
+                      {vacante.fecha_publicacion ? new Date(vacante.fecha_publicacion).toLocaleDateString('es-ES', {
                         day: '2-digit',
                         month: 'short'
-                      })}
+                      }) : 'Sin publicar'}
                     </p>
                     <p className="text-xs text-gray-600">Publicada</p>
                   </div>

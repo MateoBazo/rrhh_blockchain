@@ -1,20 +1,4 @@
 // file: frontend/src/api/vacantes.js
-
-/**
- * 💼 API SERVICE: Vacantes (S009.1-S009.2)
- * Gestión completa de ofertas laborales
- * 
- * Endpoints disponibles:
- * - POST   /vacantes              : Crear vacante (EMPRESA)
- * - GET    /vacantes              : Listar vacantes con filtros
- * - GET    /vacantes/:id          : Obtener vacante por ID
- * - PUT    /vacantes/:id          : Actualizar vacante
- * - DELETE /vacantes/:id          : Eliminar vacante
- * - PATCH  /vacantes/:id/cerrar   : Cerrar vacante
- * - GET    /vacantes/empresa/:id  : Vacantes de empresa específica
- * - GET    /vacantes/buscar       : Búsqueda avanzada
- */
-
 import axiosInstance from './axios';
 
 export const vacantesAPI = {
@@ -43,6 +27,18 @@ export const vacantesAPI = {
   crear: async (data) => {
     console.log('🔍 [vacantesAPI] Creando vacante:', data);
     return await axiosInstance.post('/vacantes', data);
+  },
+
+  /**
+   * 🆕 Publicar vacante (borrador → abierta)
+   * Solo la EMPRESA propietaria puede publicar
+   * 
+   * @param {number} id - ID de la vacante
+   * @returns {Promise<Object>} Vacante publicada
+   */
+  publicar: async (id) => {
+    console.log('📢 [vacantesAPI] Publicando vacante ID:', id);
+    return await axiosInstance.post(`/vacantes/${id}/publicar`);
   },
 
   /**
@@ -85,47 +81,73 @@ export const vacantesAPI = {
    * @returns {Promise<Object>} Vacante actualizada
    */
   actualizar: async (id, datos) => {
-    console.log('🔍 [vacantesAPI] Actualizando vacante ID:', id, datos);
-    const response = await axiosInstance.patch(`/vacantes/${id}`, datos);  // ✅ PATCH
-    return response;
+    console.log('✏️ [vacantesAPI] Actualizando vacante ID:', id, datos);
+    return await axiosInstance.patch(`/vacantes/${id}`, datos);
   },
 
   /**
-   * 🆕 Eliminar vacante
-   * Solo la EMPRESA propietaria puede eliminar
-   * ⚠️ No se puede eliminar si tiene postulaciones activas
+   * 🆕 Pausar vacante (abierta → pausada)
+   * La vacante deja de ser visible para candidatos temporalmente
    * 
    * @param {number} id - ID de la vacante
-   * @returns {Promise<Object>} Mensaje de confirmación
+   * @returns {Promise<Object>} Vacante pausada
    */
-  eliminar: async (id) => {
-    console.log('🔍 [vacantesAPI] Eliminando vacante ID:', id);
-    return await axiosInstance.delete(`/vacantes/${id}`);
+  pausar: async (id) => {
+    console.log('⏸️ [vacantesAPI] Pausando vacante ID:', id);
+    return await axiosInstance.patch(`/vacantes/${id}/pausar`);
   },
 
   /**
-   * 🆕 Cerrar vacante
+   * 🆕 Reabrir vacante (pausada → abierta)
+   * La vacante vuelve a ser visible para candidatos
+   * 
+   * @param {number} id - ID de la vacante
+   * @returns {Promise<Object>} Vacante reabierta
+   */
+  reabrir: async (id) => {
+    console.log('▶️ [vacantesAPI] Reabriendo vacante ID:', id);
+    return await axiosInstance.patch(`/vacantes/${id}/reabrir`);
+  },
+
+  /**
+   * 🆕 Cerrar vacante (cualquier estado → cerrada)
    * Cambia estado a 'cerrada' y registra fecha_cierre
+   * ⚠️ Acción irreversible
    * 
    * @param {number} id - ID de la vacante
    * @returns {Promise<Object>} Vacante cerrada
    */
   cerrar: async (id) => {
-    console.log('🔍 [vacantesAPI] Cerrando vacante ID:', id);
+    console.log('🔒 [vacantesAPI] Cerrando vacante ID:', id);
     return await axiosInstance.patch(`/vacantes/${id}/cerrar`);
   },
 
   /**
-   * 🆕 Obtener vacantes de una empresa específica
+   * 🆕 Eliminar vacante
+   * Solo la EMPRESA propietaria puede eliminar
+   * ⚠️ Solo se puede eliminar si está en estado 'borrador' y sin postulaciones
    * 
-   * @param {number} empresaId - ID de la empresa
-   * @param {Object} filtros - Filtros opcionales (estado, limite, pagina)
-   * @returns {Promise<Object>} { vacantes: [], total }
+   * @param {number} id - ID de la vacante
+   * @returns {Promise<Object>} Mensaje de confirmación
+   */
+  eliminar: async (id) => {
+    console.log('🗑️ [vacantesAPI] Eliminando vacante ID:', id);
+    return await axiosInstance.delete(`/vacantes/${id}`);
+  },
+
+  /**
+   * 🆕 Obtener vacantes de mi empresa
+   * Solo accesible por la empresa propietaria
+   * 
+   * @param {Object} params - Filtros opcionales
+   * @param {string} params.estado - Filtrar por estado
+   * @param {number} params.pagina - Página actual
+   * @param {number} params.limite - Límite por página
+   * @returns {Promise<Object>} { vacantes: [], total, estadisticas }
    */
   listarPorEmpresa: async (params = {}) => {
     console.log('🔍 [vacantesAPI] Listando vacantes de mi empresa con filtros:', params);
-    const response = await axiosInstance.get('/vacantes/empresa/mis-vacantes', { params });
-    return response;
+    return await axiosInstance.get('/vacantes/empresa/mis-vacantes', { params });
   },
 
   /**
