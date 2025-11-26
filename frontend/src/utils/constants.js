@@ -1,5 +1,54 @@
 // file: frontend/src/utils/constants.js
+// ============================================
+// 🏢 SECTORES INDUSTRIALES
+// ============================================
+export const SECTORES_INDUSTRIALES = [
+  'Tecnología de la Información',
+  'Banca y Finanzas',
+  'Manufactura',
+  'Construcción',
+  'Salud y Farmacéutica',
+  'Educación',
+  'Comercio y Retail',
+  'Turismo y Hotelería',
+  'Agricultura y Ganadería',
+  'Transporte y Logística',
+  'Energía y Minería',
+  'Telecomunicaciones',
+  'Alimentos y Bebidas',
+  'Consultoría y Servicios Profesionales',
+  'Arte y Entretenimiento',
+  'Gobierno y Administración Pública',
+  'Medios de Comunicación',
+  'Inmobiliaria',
+  'Seguros',
+  'Textil y Confección',
+  'Automotriz',
+  'Química y Petroquímica',
+  'Deportes y Recreación',
+  'Investigación y Desarrollo',
+  'Otro'
+];
 
+export const SECTOR_OPTIONS = SECTORES_INDUSTRIALES.map(sector => ({
+  value: sector,
+  label: sector
+}));
+
+// ============================================
+// 🗺️ UBICACIONES BOLIVIA
+// ============================================
+export const DEPARTAMENTOS_BOLIVIA = [
+  'La Paz',
+  'Cochabamba',
+  'Santa Cruz',
+  'Oruro',
+  'Potosí',
+  'Chuquisaca',
+  'Tarija',
+  'Beni',
+  'Pando'
+];
 // ============================================
 // 🔐 ROLES DE USUARIO
 // ============================================

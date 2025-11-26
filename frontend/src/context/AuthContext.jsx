@@ -76,55 +76,71 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const register = async (userData) => {
-    try {
-      console.log('🔄 Enviando registro:', userData);
-      const response = await authAPI.register(userData);
+  // file: frontend/src/context/AuthContext.jsx
+
+// Busca la función register (aproximadamente línea 75) y reemplázala con esto:
+
+const register = async (userData) => {
+  try {
+    console.log('🔄 Enviando registro:', userData);
+    
+    // ✅ ELIMINAR confirmPassword antes de enviar (usando destructuring con rest)
+    const { confirmPassword, ...dataParaBackend } = userData;
+    
+    // ✅ Evitar warning ESLint - usar la variable o indicar que no se usa
+    void confirmPassword; // Esta línea evita el warning de ESLint
+    
+    console.log('🔄 Datos limpiados (sin confirmPassword):', dataParaBackend);
+    
+    const response = await authAPI.register(dataParaBackend);
+    
+    console.log('✅ Response.data:', response.data);
+    
+    if (response.data && response.data.success) {
+      const { data } = response.data;
       
-      console.log('📥 Respuesta registro completa:', response);
-      console.log('📥 response.success:', response.success);
-      console.log('📥 response.message:', response.message);
-      console.log('📥 response.data:', response.data);
-      
-      // Backend devuelve { success: true, message: '...', data: { usuario, token } }
-      if (response.success) {
-        const message = response.message || '¡Registro exitoso!';
-        toast.success(message);
+      // Auto-login: guardar usuario y token
+      if (data.token && data.usuario) {
+        setUser(data.usuario);
+        setIsAuthenticated(true);
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.usuario));
         
-        // Si backend devuelve token, auto-login
-        if (response.data?.token) {
-          console.log('✅ Token recibido, haciendo auto-login...');
-          const { token, usuario } = response.data;
-          
-          localStorage.setItem('token', token);
-          localStorage.setItem('user', JSON.stringify(usuario));
-          
-          setUser(usuario);
-          setIsAuthenticated(true);
-          
-          return { success: true, autoLogin: true, user: usuario };
-        }
+        toast.success(`¡Bienvenido ${data.usuario.email}!`);
         
-        return { success: true };
-      } else {
-        const errorMsg = response.message || 'Error al registrarse';
-        toast.error(errorMsg);
-        return { success: false, message: errorMsg };
+        return { 
+          success: true, 
+          user: data.usuario, 
+          autoLogin: true 
+        };
       }
-    } catch (error) {
-      console.error('❌ Error en registro:', error);
-      console.error('❌ error.response:', error.response);
-      console.error('❌ error.response?.data:', error.response?.data);
       
-      const message = 
-        error.response?.data?.message || 
-        error.response?.data?.error ||
-        'Error al conectar con el servidor';
-      
-      toast.error(message);
-      return { success: false, message };
+      // Registro exitoso sin auto-login
+      toast.success('Registro exitoso. Por favor inicia sesión.');
+      return { success: true, autoLogin: false };
     }
-  };
+    
+    return { success: false, message: response.data?.message || 'Error en registro' };
+    
+  } catch (error) {
+    console.error('❌ Error en registro:', error);
+    console.error('❌ error.response:', error.response);
+    console.error('❌ error.response?.data:', error.response?.data);
+    console.error('❌ error.response?.data.error:', error.response?.data.error); // ✅ VER DETALLE
+    
+    const errorMessage = error.response?.data?.message || 'Error al registrar usuario';
+    
+    // Mostrar errores específicos si existen
+    if (error.response?.data?.error && Array.isArray(error.response.data.error)) {
+      const errores = error.response.data.error.map(e => e.msg || e.message).join(', ');
+      toast.error(`Error: ${errores}`);
+    } else {
+      toast.error(errorMessage);
+    }
+    
+    return { success: false, message: errorMessage };
+  }
+};
 
   const logout = () => {
     authAPI.logout();

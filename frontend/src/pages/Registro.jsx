@@ -1,14 +1,16 @@
-// file: src/pages/Registro.jsx
+// file: frontend/src/pages/Registro.jsx (PARTE 1/2)
+
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { registroSchema } from '../utils/validators';
+import { registroCandidatoSchema, registroEmpresaSchema } from '../utils/validators';
 import { useAuth } from '../hooks/useAuth'; 
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import { UserIcon, BuildingOfficeIcon } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
+import { SECTOR_OPTIONS, DEPARTAMENTOS_BOLIVIA } from '../utils/constants';
 
 export default function Registro() {
   const navigate = useNavigate();
@@ -16,18 +18,36 @@ export default function Registro() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedRole, setSelectedRole] = useState('CANDIDATO');
 
+  // ✅ SCHEMA DINÁMICO según rol seleccionado
+  const currentSchema = selectedRole === 'CANDIDATO' 
+    ? registroCandidatoSchema 
+    : registroEmpresaSchema;
+
   const {
     register,
     handleSubmit,
     formState: { errors },
     setValue,
-
+    reset
   } = useForm({
-    resolver: zodResolver(registroSchema),
+    resolver: zodResolver(currentSchema),
     defaultValues: {
       rol: 'CANDIDATO',
     },
   });
+
+  const handleRoleSelect = (role) => {
+    setSelectedRole(role);
+    setValue('rol', role);
+    
+    // ✅ Limpiar formulario al cambiar de rol
+    reset({
+      email: '',
+      password: '',
+      confirmPassword: '',
+      rol: role
+    });
+  };
 
   const onSubmit = async (data) => {
     setIsLoading(true);
@@ -37,7 +57,10 @@ export default function Registro() {
       
       console.log('✅ Resultado registro:', result);
       
-      if (result.success) {
+      // ✅ VERIFICACIÓN CORRECTA:
+      if (result && result.success) {
+        console.log('🎉 Registro exitoso');
+        
         // Si hay auto-login, redirigir al dashboard
         if (result.autoLogin && result.user) {
           console.log('🚀 Auto-login exitoso, redirigiendo a dashboard...');
@@ -54,9 +77,12 @@ export default function Registro() {
           }
         } else {
           // Sin auto-login, ir a login
-          console.log('📝 Registro exitoso, redirigiendo a login...');
+          console.log('📝 Registro exitoso sin auto-login, redirigiendo a login...');
           navigate('/login');
         }
+      } else {
+        // ✅ CASO DE ERROR
+        console.error('❌ Registro falló:', result?.message || 'Error desconocido');
       }
     } catch (error) {
       console.error('❌ Error en formulario registro:', error);
@@ -65,14 +91,9 @@ export default function Registro() {
     }
   };
 
-  const handleRoleSelect = (role) => {
-    setSelectedRole(role);
-    setValue('rol', role);
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4 py-12">
-      <div className="max-w-2xl w-full">
+      <div className="max-w-3xl w-full">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
@@ -85,12 +106,9 @@ export default function Registro() {
 
         {/* Card de Registro */}
         <div className="bg-white rounded-2xl shadow-xl p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">
-            Registro de Usuario
-          </h2>
-
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* Selección de Rol */}
+            
+            {/* ===== SELECCIÓN DE ROL ===== */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 ¿Cómo deseas registrarte? <span className="text-red-500">*</span>
@@ -133,27 +151,7 @@ export default function Registro() {
               )}
             </div>
 
-            {/* Campos del formulario */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label="Nombre"
-                type="text"
-                placeholder="Juan"
-                error={errors.nombre?.message}
-                required
-                {...register('nombre')}
-              />
-
-              <Input
-                label="Apellido"
-                type="text"
-                placeholder="Pérez"
-                error={errors.apellido?.message}
-                required
-                {...register('apellido')}
-              />
-            </div>
-
+            {/* ===== CAMPOS COMUNES ===== */}
             <Input
               label="Correo Electrónico"
               type="email"
@@ -163,88 +161,265 @@ export default function Registro() {
               {...register('email')}
             />
 
-            <Input
-              label="Contraseña"
-              type="password"
-              placeholder="••••••••"
-              error={errors.password?.message}
-              required
-              {...register('password')}
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label="Contraseña"
+                type="password"
+                placeholder="••••••••"
+                error={errors.password?.message}
+                required
+                {...register('password')}
+              />
 
-            <Input
-              label="Confirmar Contraseña"
-              type="password"
-              placeholder="••••••••"
-              error={errors.confirmPassword?.message}
-              required
-              {...register('confirmPassword')}
-            />
+              <Input
+                label="Confirmar Contraseña"
+                type="password"
+                placeholder="••••••••"
+                error={errors.confirmPassword?.message}
+                required
+                {...register('confirmPassword')}
+              />
+            </div>{/* ===== CAMPOS ESPECÍFICOS CANDIDATO ===== */}
+            {selectedRole === 'CANDIDATO' && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Cédula de Identidad (CI)"
+                    type="text"
+                    placeholder="123456"
+                    error={errors.ci?.message}
+                    required
+                    {...register('ci')}
+                  />
 
-            {/* Términos y condiciones */}
+                  <Input
+                    label="Fecha de Nacimiento"
+                    type="date"
+                    error={errors.fecha_nacimiento?.message}
+                    required
+                    {...register('fecha_nacimiento')}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Input
+                    label="Nombres"
+                    type="text"
+                    placeholder="Juan Carlos"
+                    error={errors.nombres?.message}
+                    required
+                    {...register('nombres')}
+                  />
+
+                  <Input
+                    label="Apellido Paterno"
+                    type="text"
+                    placeholder="Pérez"
+                    error={errors.apellido_paterno?.message}
+                    required
+                    {...register('apellido_paterno')}
+                  />
+
+                  <Input
+                    label="Apellido Materno"
+                    type="text"
+                    placeholder="López (opcional)"
+                    error={errors.apellido_materno?.message}
+                    {...register('apellido_materno')}
+                  />
+                </div>
+
+                {/* ✅ SECTOR DE INTERÉS CANDIDATO */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Sector de Interés <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    {...register('sector')}
+                    className="mt-1 block w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Selecciona un sector...</option>
+                    {SECTOR_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  {errors.sector && (
+                    <p className="mt-1 text-sm text-red-600">{errors.sector.message}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Recibirás vacantes relacionadas con este sector
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Departamento <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      {...register('departamento')}
+                      className="mt-1 block w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Selecciona...</option>
+                      {DEPARTAMENTOS_BOLIVIA.map(dept => (
+                        <option key={dept} value={dept}>{dept}</option>
+                      ))}
+                    </select>
+                    {errors.departamento && (
+                      <p className="mt-1 text-sm text-red-600">{errors.departamento.message}</p>
+                    )}
+                  </div>
+
+                  <Input
+                    label="Ciudad"
+                    type="text"
+                    placeholder="Cochabamba"
+                    error={errors.ciudad?.message}
+                    required
+                    {...register('ciudad')}
+                  />
+
+                  <Input
+                    label="Teléfono"
+                    type="tel"
+                    placeholder="70123456 (opcional)"
+                    error={errors.telefono?.message}
+                    {...register('telefono')}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* ===== CAMPOS ESPECÍFICOS EMPRESA ===== */}
+            {selectedRole === 'EMPRESA' && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="NIT"
+                    type="text"
+                    placeholder="123456789"
+                    error={errors.nit?.message}
+                    required
+                    {...register('nit')}
+                  />
+
+                  <Input
+                    label="Teléfono"
+                    type="tel"
+                    placeholder="44123456 (opcional)"
+                    error={errors.telefono?.message}
+                    {...register('telefono')}
+                  />
+                </div>
+
+                <Input
+                  label="Razón Social"
+                  type="text"
+                  placeholder="Tech Solutions S.R.L."
+                  error={errors.razon_social?.message}
+                  required
+                  {...register('razon_social')}
+                />
+
+                <Input
+                  label="Nombre Comercial"
+                  type="text"
+                  placeholder="TechSol (opcional)"
+                  error={errors.nombre_comercial?.message}
+                  {...register('nombre_comercial')}
+                />
+
+                {/* ✅ SECTOR EMPRESA */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Sector de la Empresa <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    {...register('sector')}
+                    className="mt-1 block w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Selecciona un sector...</option>
+                    {SECTOR_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  {errors.sector && (
+                    <p className="mt-1 text-sm text-red-600">{errors.sector.message}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Define el sector principal de tu empresa
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Departamento <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      {...register('departamento')}
+                      className="mt-1 block w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Selecciona...</option>
+                      {DEPARTAMENTOS_BOLIVIA.map(dept => (
+                        <option key={dept} value={dept}>{dept}</option>
+                      ))}
+                    </select>
+                    {errors.departamento && (
+                      <p className="mt-1 text-sm text-red-600">{errors.departamento.message}</p>
+                    )}
+                  </div>
+
+                  <Input
+                    label="Ciudad"
+                    type="text"
+                    placeholder="La Paz"
+                    error={errors.ciudad?.message}
+                    required
+                    {...register('ciudad')}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* ===== TÉRMINOS Y CONDICIONES ===== */}
             <div className="flex items-start">
               <input
                 type="checkbox"
                 required
                 className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
-              <label className="ml-2 block text-sm text-gray-700">
+              <label className="ml-2 text-sm text-gray-600">
                 Acepto los{' '}
-                <Link to="/terminos" className="text-blue-600 hover:text-blue-700">
-                  Términos de Servicio
+                <Link to="/terminos" className="text-blue-600 hover:underline">
+                  términos y condiciones
                 </Link>{' '}
                 y la{' '}
-                <Link to="/privacidad" className="text-blue-600 hover:text-blue-700">
-                  Política de Privacidad
-                </Link></label>
+                <Link to="/privacidad" className="text-blue-600 hover:underline">
+                  política de privacidad
+                </Link>
+              </label>
             </div>
 
-            {/* Botón Submit */}
+            {/* ===== BOTÓN SUBMIT ===== */}
             <Button
               type="submit"
               variant="primary"
               fullWidth
+              disabled={isLoading}
               loading={isLoading}
             >
-              Crear Cuenta
+              {isLoading ? 'Registrando...' : 'Crear Cuenta'}
             </Button>
+
+            {/* ===== LINK LOGIN ===== */}
+            <p className="text-center text-sm text-gray-600">
+              ¿Ya tienes cuenta?{' '}
+              <Link to="/login" className="text-blue-600 hover:underline font-medium">
+                Inicia sesión
+              </Link>
+            </p>
           </form>
-
-          {/* Divider */}
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">
-                ¿Ya tienes cuenta?
-              </span>
-            </div>
-          </div>
-
-          {/* Link a Login */}
-          <Link to="/login">
-            <Button variant="outline" fullWidth>
-              Iniciar Sesión
-            </Button>
-          </Link>
-        </div>
-
-        {/* Footer de seguridad */}
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm text-blue-800 flex items-center">
-            <svg
-              className="h-5 w-5 mr-2"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </p>
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
+const { SECTORES_ENUM, TAMANIOS_EMPRESA } = require('../utils/constants'); // IMPORTAR
 
 const Empresa = sequelize.define('empresas', {
   id: {
@@ -12,6 +13,7 @@ const Empresa = sequelize.define('empresas', {
   usuario_id: {
     type: DataTypes.INTEGER.UNSIGNED,  
     allowNull: true,
+    unique: true, // AGREGAR: Un usuario solo puede tener una empresa
     references: {
       model: 'usuarios',
       key: 'id'
@@ -19,7 +21,15 @@ const Empresa = sequelize.define('empresas', {
   },
   nit: {
     type: DataTypes.STRING(20),
-    allowNull: true
+    allowNull: false, // CAMBIAR: Ahora obligatorio en registro
+    unique: true,
+    validate: {
+      notEmpty: { msg: 'El NIT es obligatorio' },
+      len: {
+        args: [5, 20],
+        msg: 'El NIT debe tener entre 5 y 20 caracteres'
+      }
+    }
   },
   razon_social: {
     type: DataTypes.STRING(255),
@@ -32,9 +42,17 @@ const Empresa = sequelize.define('empresas', {
     type: DataTypes.STRING(255),
     allowNull: true
   },
+  // CAMBIAR: VARCHAR → ENUM
   sector: {
-    type: DataTypes.STRING(100),
-    allowNull: true
+    type: DataTypes.ENUM(...SECTORES_ENUM),
+    allowNull: false, // OBLIGATORIO en registro
+    validate: {
+      notEmpty: { msg: 'El sector es obligatorio' },
+      isIn: {
+        args: [SECTORES_ENUM],
+        msg: 'Sector inválido'
+      }
+    }
   },
   tamanio: {
     type: DataTypes.ENUM('Micro', 'Pequeña', 'Mediana', 'Grande'),
@@ -46,19 +64,28 @@ const Empresa = sequelize.define('empresas', {
   },
   sitio_web: {
     type: DataTypes.STRING(255),
-    allowNull: true
+    allowNull: true,
+    validate: {
+      isUrl: { msg: 'URL inválida' }
+    }
   },
   pais: {
     type: DataTypes.STRING(100),
-    allowNull: true
+    defaultValue: 'Bolivia'
   },
   departamento: {
     type: DataTypes.STRING(100),
-    allowNull: true
+    allowNull: false, // OBLIGATORIO en registro
+    validate: {
+      notEmpty: { msg: 'El departamento es obligatorio' }
+    }
   },
   ciudad: {
     type: DataTypes.STRING(100),
-    allowNull: true
+    allowNull: false, // OBLIGATORIO en registro
+    validate: {
+      notEmpty: { msg: 'La ciudad es obligatoria' }
+    }
   },
   direccion: {
     type: DataTypes.STRING(300),
@@ -90,8 +117,6 @@ const Empresa = sequelize.define('empresas', {
 // ASOCIACIONES
 // ============================================
 Empresa.associate = (models) => {
-  // ❌ NO DEFINIR Empresa -> Usuario AQUÍ (ya está en index.js)
-  
   // 🆕 Empresa → Vacantes (1:N)
   if (models.Vacante) {
     Empresa.hasMany(models.Vacante, {
